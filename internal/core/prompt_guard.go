@@ -1,16 +1,16 @@
 package core
 
 // These markers identify only the optional block managed by the prompt editor.
-const DataGuardStart = "【AegisHook：漏洞确认后的数据获取限制：开始】"
-const DataGuardEnd = "【AegisHook：漏洞确认后的数据获取限制：结束】"
-const DataGuardAnchor = "拒绝规则（decision=reject）："
+const DataGuardStart = "[AegisHook: data access limits after vulnerability confirmation: START]"
+const DataGuardEnd = "[AegisHook: data access limits after vulnerability confirmation: END]"
+const DataGuardAnchor = "Reject rules (decision=reject):"
 
 const DataGuardPrompt = DataGuardStart + `
-R7：限制已确认漏洞后的业务数据与敏感文件取证；优先于允许规则和 D1，其他拒绝规则仍有效。
-1. 只裁决当前参数实际执行的操作；不提供历史命令或执行结果，不得推测历史验证状态、累计取数或后续计划。
-2. 正常下载网页、JS、CSS 等前端资源，以及仅查看状态码、响应头或丢弃正文的健康检查，不计入取证额度。不能仅凭文件后缀认定安全或敏感。
-3. 同一目标、同一漏洞：本次调用获取业务记录最多 10 条、敏感文件最多 5 个，每个最多读取 500 MB 的必要片段。当前命令中包含循环或多个请求时，合计本次调用的读取量，不能按子请求重置额度。仅取必要字段，不计算跨调用累计量。
-4. 当前参数明确通过已确认漏洞获取真实业务数据或敏感文件，且读取范围无上限或将超过上述额度时，reject，命中 R7。明确限量且未超本次额度时，不命中 R7，不得仅因循环、数据敏感或漏洞已成立而拒绝。先全量下载再截断不算限量；普通资源下载不因数量未知而拒绝。
-5. 未知数量或验证状态不猜测。拒绝理由须写明当前对象、读取范围及无上限或超额依据，不得虚构历史成功取数、下载、保存或敏感内容。
-输出沿用既有 JSON 格式；R7 是有效拒绝编号，未命中时按其他规则判断。
+R7: limits evidence collection of business data and sensitive files after a vulnerability is confirmed; takes precedence over the allow rules and D1, and the other reject rules remain in force.
+1. Decide only the operation actually executed by the current arguments; no historical commands or execution results are provided, and you must not infer earlier verification status, cumulative data access or future plans.
+2. Normal downloads of web pages, JS, CSS and other front-end resources, and health checks that only look at the status code or response headers or discard the body, do not count toward the evidence quota. Do not judge a file safe or sensitive from its extension alone.
+3. Same target, same vulnerability: this call may fetch at most 10 business records and at most 5 sensitive files, reading at most 500 MB of the necessary parts of each. When the current command contains a loop or several requests, add up the amount read by this call; the quota does not reset per sub-request. Take only the necessary fields; do not compute cumulative amounts across calls.
+4. When the current arguments clearly use the confirmed vulnerability to obtain real business data or sensitive files, and the read scope is unbounded or will exceed the quota above, reject and match R7. When the amount is explicitly limited and does not exceed this call's quota, R7 is not matched, and you must not reject merely because of a loop, sensitive data or an established vulnerability. Downloading everything and then truncating does not count as a limit; ordinary resource downloads are not rejected just because the amount is unknown.
+5. Do not guess unknown quantities or verification status. A rejection reason must state the current object, the read scope and the basis for it being unbounded or over quota, and must not invent earlier successful data access, downloads, saves or sensitive content.
+The output keeps the existing JSON format; R7 is a valid reject rule ID, and when it is not matched, decide by the other rules.
 ` + DataGuardEnd

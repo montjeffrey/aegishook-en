@@ -22,27 +22,27 @@ function toggleTheme() {
 }
 const groups = [
   {
-    name: "工作台",
+    name: "Workspace",
     items: [
-      ["/overview", "总览", "LayoutDashboard"],
-      ["/sessions", "执行会话", "MessagesSquare"],
-      ["/calls", "工具调用", "Workflow"],
+      ["/overview", "Overview", "LayoutDashboard"],
+      ["/sessions", "Sessions", "MessagesSquare"],
+      ["/calls", "Tool calls", "Workflow"],
     ],
   },
   {
-    name: "安全管理",
+    name: "Security",
     items: [
-      ["/rules", "策略规则", "ClipboardList"],
-      ["/approvals", "审批与拦截", "ShieldCheck"],
-      ["/scopes", "授权范围", "ScanFace"],
-      ["/audit", "审计日志", "ScrollText"],
+      ["/rules", "Policy rules", "ClipboardList"],
+      ["/approvals", "Approvals & blocks", "ShieldCheck"],
+      ["/scopes", "Authorization scope", "ScanFace"],
+      ["/audit", "Audit log", "ScrollText"],
     ],
   },
   {
-    name: "系统",
+    name: "System",
     items: [
-      ["/agents", "Agent 接入", "Bot"],
-      ["/settings", "系统设置", "Settings"],
+      ["/agents", "Agent integration", "Bot"],
+      ["/settings", "System settings", "Settings"],
     ],
   },
 ];
@@ -69,35 +69,35 @@ onMounted(() => {
 <template>
   <div v-if="!store.ready" class="loading-page">
     <BrandLogo :size="40" />
-    <p>正在连接本机控制台…</p>
+    <p>Connecting to the local console…</p>
   </div>
   <div v-else-if="!store.authenticated" class="login-page">
     <form class="login-panel" @submit.prevent="login">
       <div class="brand large">
         <BrandLogo :size="38" /><span
-          >AegisHook<small>Agent 执行审查控制台</small></span
+          >AegisHook<small>Agent tool call review console</small></span
         >
       </div>
-      <h1>连接你的本机控制台</h1>
+      <h1>Connect to your local console</h1>
       <p class="muted">
-        使用启动终端中提示的 <code>admin.token</code> 文件内的管理令牌登录。
+        Sign in with the admin token in the <code>admin.token</code> file shown in the startup terminal.
       </p>
       <label
-        >管理令牌<input
+        >Admin token<input
           v-model="token"
           type="password"
           autocomplete="off"
           required
-          placeholder="输入本机管理令牌"
-          aria-label="管理令牌"
+          placeholder="Enter the local admin token"
+          aria-label="Admin token"
       /></label>
       <p v-if="loginError" class="form-error">{{ loginError }}</p>
       <button class="primary wide" :disabled="logging">
-        {{ logging ? "正在连接…" : "进入控制台" }}<Icon name="ArrowRight" />
+        {{ logging ? "Connecting…" : "Open console" }}<Icon name="ArrowRight" />
       </button>
       <p class="login-note">
-        <Icon name="LockKeyhole" :size="14" />仅连接本机 ·
-        令牌不会发送到外部服务
+        <Icon name="LockKeyhole" :size="14" />Local connection only ·
+        the token is never sent to external services
       </p>
     </form>
   </div>
@@ -131,15 +131,15 @@ onMounted(() => {
         <router-link to="/agents" class="health"
           ><i class="dot" :class="{ green: store.streamOnline && store.online > 0, event: store.streamOnline && !store.online && store.recentEvents > 0 }" /><span>{{
             !store.streamOnline
-              ? "审查服务连接失败"
+              ? "Review service connection failed"
               : store.online
-                ? "持续在线 " + store.online + " · 事件接入 " + store.eventConnections
+                ? "Online " + store.online + " · event access " + store.eventConnections
                 : store.eventConnections
-                  ? "事件接入 " + store.eventConnections + " · 最近活跃 " + store.recentEvents
-                  : "暂无会话连接"
+                  ? "Event access " + store.eventConnections + " · recently active " + store.recentEvents
+                  : "No session connections"
           }}</span></router-link
         ><button class="profile" @click="store.logout">
-          <span class="avatar">管</span><span>管理员</span
+          <span class="avatar">A</span><span>Admin</span
           ><Icon name="LogOut" :size="16" />
         </button>
       </div>
@@ -148,27 +148,27 @@ onMounted(() => {
       <header class="topbar">
         <button
           class="icon-button"
-          :aria-label="collapsed ? '展开侧栏' : '收起侧栏'"
+          :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
           @click="collapsed = !collapsed"
         >
           <Icon name="PanelLeft" />
         </button>
         <form class="global-search" @submit.prevent="doSearch">
           <Icon name="Search" :size="18" />
-          <input v-model="search" placeholder="搜索" aria-label="全局搜索" />
+          <input v-model="search" placeholder="Search" aria-label="Global search" />
           <kbd>↵</kbd>
         </form>
         <div class="topbar-actions">
           <router-link
             to="/settings"
             class="icon-button chrome-button"
-            aria-label="打开系统设置"
+            aria-label="Open system settings"
             ><Icon name="Settings" :size="19"
           /></router-link>
           <button
             class="icon-button chrome-button"
             @click="toggleTheme"
-            :aria-label="theme === 'light' ? '切换深色主题' : '切换浅色主题'"
+            :aria-label="theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'"
           >
             <Icon :name="theme === 'light' ? 'Moon' : 'Sun'" :size="19" />
           </button>
@@ -177,7 +177,7 @@ onMounted(() => {
       <main>
         <div v-if="store.error" role="alert" class="alert danger">
           <Icon name="CircleAlert" />{{ store.error
-          }}<button class="text-button" @click="store.error = ''">关闭</button>
+          }}<button class="text-button" @click="store.error = ''">Dismiss</button>
         </div>
         <router-view />
       </main>

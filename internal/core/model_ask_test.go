@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-const askReply = `{"decision":"ask","comment":"实际操作：执行未知脚本；成功后的后果：无法确认副作用；命中规则：H1"}`
-const unknownApprove = `{"decision":"approve","comment":"实际操作：执行未知脚本；成功后的后果：当前参数未显示明确高危操作；命中规则：D1"}`
+const askReply = `{"decision":"ask","comment":"Actual operation: run an unknown script; Consequence if successful: side effects cannot be confirmed; Matched rule: H1"}`
+const unknownApprove = `{"decision":"approve","comment":"Actual operation: run an unknown script; Consequence if successful: the current arguments show no explicitly high-risk operation; Matched rule: D1"}`
 
 func TestModelBinarySchema(t *testing.T) {
 	for _, raw := range []string{askReply, strings.Replace(askReply, "H1", "D1", 1), strings.Replace(askReply, `"ask"`, `"approve"`, 1)} {
@@ -24,7 +24,7 @@ func TestModelBinarySchema(t *testing.T) {
 	if strings.Contains(DefaultPrompt, "H1") || strings.Contains(DefaultPrompt, `"decision":"ask"`) {
 		t.Fatal("default prompt still requests referral")
 	}
-	for _, example := range []string{"13. mysql", "14. 删除"} {
+	for _, example := range []string{"13. mysql", "14. delete"} {
 		if !strings.Contains(DefaultPrompt, example) {
 			t.Fatal("lost requested example", example)
 		}

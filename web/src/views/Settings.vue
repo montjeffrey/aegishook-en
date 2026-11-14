@@ -73,7 +73,7 @@ async function test() {
   testing.value = true;
   await store.action(
     () => api("/model/test", "POST", {}),
-    "模型连接与裁决格式测试通过",
+    "Model connection and decision format test passed",
   );
   testing.value = false;
   if (!dirty.value && store.settings)
@@ -89,11 +89,11 @@ async function restore() {
 <template>
   <div class="page-heading">
     <div>
-      <h1><Icon name="Settings" :size="24" />系统设置</h1>
-      <p>配置审查模式与模型。变更只影响之后提交的工具调用。</p>
+      <h1><Icon name="Settings" :size="24" />System settings</h1>
+      <p>Configure the review mode and model. Changes only affect tool calls submitted afterwards.</p>
     </div>
     <button class="primary" @click="save">
-      <Icon name="Check" :size="17" />保存设置
+      <Icon name="Check" :size="17" />Save settings
     </button>
   </div>
   <form
@@ -104,16 +104,16 @@ async function restore() {
     @change="dirty = true"
   >
     <section class="panel form-panel">
-      <h2>审查模式</h2>
+      <h2>Review mode</h2>
       <p class="muted">
-        所有接入的工具调用先检查授权范围和已启用规则。规则命中允许或拒绝后直接返回；只有未命中的调用进入下方所选模式。拒绝规则优先于允许规则。
+        Every tool call is first checked against the authorization scope and enabled rules. If a rule matches and approves or rejects, the result is returned directly; only calls that match no rule go to the mode selected below. Reject rules take priority over allow rules.
       </p>
       <label class="choice" :class="{ chosen: form.mode === 'human' }"
         ><input type="radio" v-model="form.mode" value="human" /><Icon
           name="UserRound"
         /><span
-          ><strong>人工审查</strong
-          ><small>规则未定的调用逐次等待你批准。</small></span
+          ><strong>Human review</strong
+          ><small>Calls not decided by a rule wait for your approval one by one.</small></span
         ></label
       ><label class="choice" :class="{ chosen: form.mode === 'model' }"
         ><input
@@ -122,25 +122,25 @@ async function restore() {
           value="model"
           :disabled="!store.settings?.model.tested"
         /><Icon name="Bot" /><span
-          ><strong>模型审查</strong
-          ><small>规则未命中的调用由模型判断允许或拒绝，不转人工。</small></span
+          ><strong>Model review</strong
+          ><small>Calls that match no rule are approved or rejected by the model, without human handoff.</small></span
         ></label
       >
       <div class="notice">
         <Icon name="Info" />
         <p>
-          人工待审批从提交时计时，超时未处理自动拒绝；模型连接失败、超时或非法输出也会拒绝。
+          The human approval timer starts at submission and the call is rejected automatically on timeout; a model connection failure, timeout or invalid output also rejects the call.
         </p>
       </div>
       <div class="form-two">
         <label
-          >人工等待时限（秒）<input
+          >Human approval timeout (seconds)<input
             type="number"
             min="10"
             max="86400"
             v-model.number="form.approvalSeconds" /></label
         ><label
-          >模型请求超时（秒）<input
+          >Model request timeout (seconds)<input
             type="number"
             min="1"
             max="120"
@@ -150,94 +150,94 @@ async function restore() {
     </section>
     <section class="panel form-panel">
       <div class="inline">
-        <h2>审查模型</h2>
+        <h2>Review model</h2>
         <span
           class="badge"
           :class="store.settings?.model.tested ? 'approve' : 'pending'"
-          >{{ store.settings?.model.tested ? "测试通过" : "未验证" }}</span
+          >{{ store.settings?.model.tested ? "Test passed" : "Not verified" }}</span
         >
       </div>
       <p class="muted">
-        支持 OpenAI 兼容与 Anthropic Messages 协议，独立于 Pi 的模型登录。
+        Supports OpenAI-compatible and Anthropic Messages protocols, independent of Pi's model login.
       </p>
       <label
-        >API 协议<AppSelect
+        >API protocol<AppSelect
           v-model="form.model.protocol"
-          label="API 协议"
+          label="API protocol"
           :options="[
-            { value: 'openai', label: 'OpenAI 兼容（Chat Completions）' },
-            { value: 'anthropic', label: 'Anthropic（Messages）' },
+            { value: 'openai', label: 'OpenAI-compatible (Chat Completions)' },
+            { value: 'anthropic', label: 'Anthropic (Messages)' },
           ]" /></label
       ><label
         >Base URL<input
           v-model="form.model.baseUrl"
           placeholder="https://your-provider.example/v1" /></label
       ><label
-        >模型名称<input
+        >Model name<input
           v-model="form.model.model"
-          placeholder="填写服务商提供的模型 ID" /></label
+          placeholder="Enter the model ID from your provider" /></label
       ><label
         >API Key<input
           type="password"
           v-model="apiKey"
           autocomplete="new-password"
           :placeholder="
-            form.model.hasKey ? '已保存，留空保留原值' : '本地无鉴权服务可留空'
+            form.model.hasKey ? 'Saved; leave blank to keep the current value' : 'Leave blank for a local service without authentication'
           "
       /></label>
       <div class="inline">
         <button type="button" @click="test" :disabled="testing || dirty">
           <Icon name="Plug" :size="16" />{{
-            testing ? "测试中…" : "测试已保存的配置"
+            testing ? "Testing…" : "Test saved configuration"
           }}</button
-        ><span class="tiny muted">先保存配置，再测试连接。</span>
+        ><span class="tiny muted">Save the configuration first, then test the connection.</span>
       </div>
     </section>
     <section class="panel form-panel prompt-panel pricing-panel">
-      <h2>审查模型费用估算</h2>
+      <h2>Review model cost estimate</h2>
       <p class="muted">
-        填写当前模型的每百万 Token
-        单价。包含连接测试，按请求时的单价留存；未配置的历史请求不会补算。实际账单以服务商为准。
+        Enter the current model's price per million tokens.
+        Connection tests are included and the price at request time is kept; historical requests without pricing are not back-filled. Actual billing is determined by your provider.
       </p>
       <SettingSwitch
         v-model="form.model.pricing.enabled"
-        label="启用费用估算"
-        description="开启后，按填写的模型单价估算审查请求费用，包含连接测试。未配置的历史请求不会补算，实际账单以服务商为准。保存设置后生效。"
+        label="Enable cost estimate"
+        description="When enabled, review request costs are estimated from the model prices you enter, including connection tests. Historical requests without pricing are not back-filled, and actual billing is determined by your provider. Takes effect after saving settings."
         @update:model-value="dirty = true"
       />
       <div class="pricing-fields">
         <label
-          >计价币种<AppSelect
+          >Pricing currency<AppSelect
             v-model="form.model.pricing.currency"
-            label="计价币种"
+            label="Pricing currency"
             :options="[
-              { value: 'CNY', label: '人民币 CNY' },
-              { value: 'USD', label: '美元 USD' },
+              { value: 'CNY', label: 'CNY (yuan)' },
+              { value: 'USD', label: 'USD (dollar)' },
             ]"
         /></label>
         <label
-          >输入单价<input
+          >Input price<input
             type="number"
             min="0"
             step="any"
             v-model.number="form.model.pricing.input"
         /></label>
         <label
-          >输出单价<input
+          >Output price<input
             type="number"
             min="0"
             step="any"
             v-model.number="form.model.pricing.output"
         /></label>
         <label
-          >缓存读取单价<input
+          >Cache read price<input
             type="number"
             min="0"
             step="any"
             v-model.number="form.model.pricing.cacheRead"
         /></label>
         <label
-          >缓存写入单价<input
+          >Cache write price<input
             type="number"
             min="0"
             step="any"
@@ -246,37 +246,37 @@ async function restore() {
       </div>
       <small class="muted"
         >0
-        表示免费；切换模型或服务商时，请同步核对单价。缓存写入使用统一单价，不区分缓存时长。</small
+        means free; when you switch model or provider, check the prices too. Cache writes use a single price regardless of cache duration.</small
       >
     </section>
     <section class="panel form-panel prompt-panel">
       <div class="panel-heading">
         <div>
-          <h2>模型审查提示词</h2>
-          <p class="muted">仅审查当前调用 · 拒绝规则优先 · 模型直接裁决</p>
+          <h2>Model review prompt</h2>
+          <p class="muted">Reviews only the current call · reject rules take priority · the model decides directly</p>
         </div>
         <button type="button" @click="restore">
-          <Icon name="RotateCcw" :size="16" />恢复默认
+          <Icon name="RotateCcw" :size="16" />Restore default
         </button>
       </div>
       <SettingSwitch
         :model-value="dataGuardEnabled"
         :disabled="!promptTemplate"
-        label="限制漏洞确认后的批量取数"
-        :description="'仅根据当前工具参数判断验证状态和本次取数范围；一个调用中的循环或多个请求合并检查。不读取历史命令或结果，不计算跨调用累计量。\n默认关闭，按需开启。切换会插入或移除对应规则块，保存设置后生效。\n仅作用于进入模型审查的调用，前置允许规则仍可能直接放行。'"
+        label="Limit bulk data retrieval after a vulnerability is confirmed"
+        :description="'Verification status and the scope of this retrieval are judged only from the current tool arguments; loops or multiple requests within one call are checked together. Previous commands and results are not read, and cumulative amounts across calls are not computed.\nOff by default; enable as needed. Toggling inserts or removes the matching rule block and takes effect after saving settings.\nApplies only to calls that enter model review; an earlier allow rule may still approve a call directly.'"
         @update:model-value="toggleDataGuard"
       />
       <label
-        >提示词内容<textarea
+        >Prompt content<textarea
           class="prompt-editor mono"
           v-model="form.prompt"
           rows="19"
         />
       </label>
       <div class="inline muted tiny">
-        <Icon name="History" :size="15" />当前配置 v{{
+        <Icon name="History" :size="15" />Current config v{{
           form.version
-        }}；每次保存生成新版本，历史调用保留原版本快照。
+        }}; every save creates a new version, and past calls keep a snapshot of their original version.
       </div>
     </section>
   </form>

@@ -37,7 +37,7 @@ export async function api<T = any>(
   if (!res.ok) {
     if (res.status === 401)
       window.dispatchEvent(new Event("aegis-unauthorized"));
-    throw new Error(value.error || "请求失败");
+    throw new Error(value.error || "Request failed");
   }
   return value;
 }
@@ -92,7 +92,7 @@ export const useConsole = defineStore("console", () => {
   );
   const sessionSummary = computed(
     () =>
-      `持续在线 ${online.value} · 事件接入 ${eventConnections.value}（最近活跃 ${recentEvents.value}）`,
+      `Online ${online.value} · event access ${eventConnections.value} (recently active ${recentEvents.value})`,
   );
   const sortedInstances = computed(() =>
     [...instances.value].sort(
@@ -212,7 +212,7 @@ export const useConsole = defineStore("console", () => {
       toast.value = "";
     }, 4000);
   }
-  async function action(fn: () => Promise<unknown>, message = "已保存") {
+  async function action(fn: () => Promise<unknown>, message = "Saved") {
     try {
       await fn();
       notify(message);
@@ -279,38 +279,38 @@ export const date = (s: string | null) =>
       })
     : "—";
 export const decisionLabel = (s: string) =>
-  ({ approve: "已允许", reject: "已拒绝", pending: "待审批" })[s] || s;
+  ({ approve: "Approved", reject: "Rejected", pending: "Pending approval" })[s] || s;
 export const reviewPathLabel = (c: Call) =>
   c.reviewPath
     ? {
-        scope: "授权范围拦截",
-        rule: "规则直接裁决",
-        human: "规则未命中 → 人工审批",
-        model: "规则未命中 → 模型审查",
+        scope: "Blocked by authorization scope",
+        rule: "Decided directly by rule",
+        human: "No rule matched → human approval",
+        model: "No rule matched → model review",
       }[c.reviewPath]
-    : "审查路径未记录";
+    : "Review path not recorded";
 export const matchedRuleName = (c: Call) =>
   c.reviewPath === "rule"
     ? c.rules?.find((r) => r.id === c.ruleId)?.name || c.ruleId
     : "";
 export const executionLabel = (s: string) =>
   ({
-    not_executed: "未执行",
-    awaiting_execution: "等待执行结果",
-    succeeded: "执行成功",
-    failed: "执行失败",
+    not_executed: "Not executed",
+    awaiting_execution: "Awaiting execution result",
+    succeeded: "Succeeded",
+    failed: "Failed",
   })[s] || s;
 export const callTitle = (c: Call) =>
   ({
-    R1: "修改用户密码",
-    R2: "修改系统配置",
-    R3: "修改账号或权限",
-    R4: "删除数据或文件",
-    R5: "停止业务服务",
-    R6: "拒绝服务操作",
-    R7: "漏洞确认后批量取数",
-    A7: "读取或查询",
-  })[c.ruleId] || c.toolName + " 工具调用";
+    R1: "Change user password",
+    R2: "Change system configuration",
+    R3: "Change accounts or permissions",
+    R4: "Delete data or files",
+    R5: "Stop business service",
+    R6: "Denial-of-service operation",
+    R7: "Bulk data retrieval after vulnerability confirmed",
+    A7: "Read or query",
+  })[c.ruleId] || c.toolName + " tool call";
 
 export const agentName = (id?: string) =>
   ({
@@ -324,13 +324,13 @@ export const connectionLabel = (i: Instance) =>
   i.connectionMode === "events"
     ? i.state === "disconnected"
       ? i.disconnectReason === "session_end"
-        ? "已结束"
+        ? "Ended"
         : i.disconnectReason === "service_restart"
-          ? "待重新接入"
-          : "已断开"
+          ? "Awaiting reconnect"
+          : "Disconnected"
       : isRecentEventInstance(i)
-        ? "事件接入 · 最近活跃"
-        : "事件接入 · 暂无近期事件"
+        ? "Event access · recently active"
+        : "Event access · no recent events"
     : i.online
-      ? "在线"
-      : "已断开";
+      ? "Online"
+      : "Disconnected";

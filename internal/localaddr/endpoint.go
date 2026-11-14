@@ -11,15 +11,15 @@ import (
 func Endpoint(value string) (string, error) {
 	u, err := url.Parse(value)
 	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.RawPath != "" || (u.Path != "" && u.Path != "/") {
-		return "", errors.New("风控地址须为 HTTPS 源站地址（不含凭据、路径、查询或片段）；本机回环地址可使用 HTTP")
+		return "", errors.New("review service address must be an HTTPS origin (no credentials, path, query or fragment); HTTP is allowed only for a loopback address")
 	}
 	if u.Scheme != "https" && !(u.Scheme == "http" && IsLoopback(u.Hostname())) {
-		return "", errors.New("远程风控地址必须使用 HTTPS；HTTP 仅允许本机回环地址")
+		return "", errors.New("remote review service address must use HTTPS; HTTP is allowed only for a loopback address")
 	}
 	if p := u.Port(); p != "" {
 		n, err := strconv.Atoi(p)
 		if err != nil || n < 1 || n > 65535 {
-			return "", errors.New("风控地址端口无效")
+			return "", errors.New("review service address port is invalid")
 		}
 	}
 	return strings.TrimRight(u.String(), "/"), nil

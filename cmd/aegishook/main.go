@@ -38,8 +38,8 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "hook" {
 		f := flag.NewFlagSet("hook", flag.ContinueOnError)
-		agent := f.String("agent", "", "客户端类型")
-		connection := f.String("connection", "", "连接配置")
+		agent := f.String("agent", "", "client type")
+		connection := f.String("connection", "", "connection config")
 		if err := f.Parse(os.Args[2:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return
@@ -105,7 +105,7 @@ func run() error {
 		return json.NewEncoder(os.Stdout).Encode(v)
 	case "uninstall":
 		if o.id == "" {
-			return fmt.Errorf("请用 --id 指定 status 中的安装记录")
+			return fmt.Errorf("use --id to specify an install record from status")
 		}
 		return e.Uninstall(o.id)
 	case "status":
@@ -120,7 +120,7 @@ func run() error {
 		return json.NewEncoder(os.Stdout).Encode(map[string]any{"agents": core.DetectAgents(), "installations": is, "instances": instances})
 	case "serve":
 	default:
-		return fmt.Errorf("支持 serve、install、uninstall、status")
+		return fmt.Errorf("supported commands: serve, install, uninstall, status")
 	}
 	ui, err := fs.Sub(assets.Files, "ui")
 	if err != nil {
@@ -141,7 +141,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("AegisHook %s: http://%s\n首次登录：使用 %s 中的管理令牌。\n", core.ReleaseVersion, o.addr, filepath.Join(e.Dir, "admin.token"))
+	fmt.Printf("AegisHook %s: http://%s\nFirst sign-in: use the admin token in %s.\n", core.ReleaseVersion, o.addr, filepath.Join(e.Dir, "admin.token"))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go func() {
@@ -170,7 +170,7 @@ func remoteCommand(command, data, addr, scope, project, id, agent string) (bool,
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return true, fmt.Errorf("服务管理认证失败")
+		return true, fmt.Errorf("service admin authentication failed")
 	}
 	var cookie *http.Cookie
 	for _, c := range res.Cookies() {
@@ -179,7 +179,7 @@ func remoteCommand(command, data, addr, scope, project, id, agent string) (bool,
 		}
 	}
 	if cookie == nil {
-		return true, fmt.Errorf("未收到管理会话")
+		return true, fmt.Errorf("no admin session received")
 	}
 	endpoint := "/api/v1/installations"
 	method := "GET"
@@ -190,7 +190,7 @@ func remoteCommand(command, data, addr, scope, project, id, agent string) (bool,
 		body, _ = json.Marshal(map[string]string{"agent": agent, "scope": scope, "project": project})
 	case "uninstall":
 		if id == "" {
-			return true, fmt.Errorf("请指定 --id")
+			return true, fmt.Errorf("specify --id")
 		}
 		method = "DELETE"
 		endpoint += "/" + id
@@ -205,7 +205,7 @@ func remoteCommand(command, data, addr, scope, project, id, agent string) (bool,
 			}
 			if res.StatusCode != 200 {
 				res.Body.Close()
-				return true, fmt.Errorf("状态查询失败 HTTP %d", res.StatusCode)
+				return true, fmt.Errorf("status query failed with HTTP %d", res.StatusCode)
 			}
 			var value any
 			err = json.NewDecoder(res.Body).Decode(&value)
@@ -217,7 +217,7 @@ func remoteCommand(command, data, addr, scope, project, id, agent string) (bool,
 		}
 		return true, json.NewEncoder(os.Stdout).Encode(values)
 	default:
-		return true, fmt.Errorf("未知命令")
+		return true, fmt.Errorf("unknown command")
 	}
 	req, _ := http.NewRequest(method, "http://"+addr+endpoint, bytes.NewReader(body))
 	req.AddCookie(cookie)
@@ -228,7 +228,7 @@ func remoteCommand(command, data, addr, scope, project, id, agent string) (bool,
 	}
 	defer out.Body.Close()
 	if out.StatusCode >= 400 {
-		return true, fmt.Errorf("管理操作失败 HTTP %d", out.StatusCode)
+		return true, fmt.Errorf("admin operation failed with HTTP %d", out.StatusCode)
 	}
 	_, err = io.Copy(os.Stdout, out.Body)
 	return true, err

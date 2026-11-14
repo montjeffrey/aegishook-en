@@ -23,16 +23,16 @@ func (e *Engine) Register(i Instance) error {
 	if i.NodeID != "" {
 		id, err := hex.DecodeString(i.NodeID)
 		if err != nil || len(id) != 16 || !hasExact(i.Platform, "linux", "darwin", "windows") || !agentPathAbs(i.Cwd, i.Platform) {
-			return errors.New("远程节点身份、平台或项目路径无效")
+			return errors.New("remote node identity, platform or project path is invalid")
 		}
 		i.Installations = nil
 	}
 	i.Agent = AgentID(i.Agent)
 	if AgentName(i.Agent) == "" {
-		return errors.New("未知 Agent")
+		return errors.New("unknown agent")
 	}
 	if i.ID == "" || i.SessionID == "" || (i.NodeID == "" && !filepath.IsAbs(i.Cwd)) || i.HookVersion != Version {
-		return errors.New("会话字段或 Hook 版本无效")
+		return errors.New("session fields or hook version are invalid")
 	}
 	// Keep historical validation separate from bindings for this registration.
 	// Ignore caller-supplied history; only successful registrations establish it.
@@ -40,7 +40,7 @@ func (e *Engine) Register(i Instance) error {
 	var prev Instance
 	if e.get("instances", i.ID, &prev) == nil {
 		if prev.SessionID != i.SessionID || prev.Cwd != i.Cwd || AgentID(prev.Agent) != i.Agent || prev.NodeID != i.NodeID || (i.NodeID != "" && prev.Platform != i.Platform) {
-			return errors.New("实例身份冲突")
+			return errors.New("instance identity conflict")
 		}
 		bindings := i.Installations
 		i = prev
@@ -61,7 +61,7 @@ func (e *Engine) Register(i Instance) error {
 	i.State = "idle"
 	i.DisconnectReason = ""
 	i.Online = true
-	return e.change("instances", i.ID, i, "instance.register", AgentName(i.Agent)+" 会话事件已接入")
+	return e.change("instances", i.ID, i, "instance.register", AgentName(i.Agent)+" session events connected")
 }
 func (e *Engine) Heartbeat(id, state string) error {
 	e.mu.Lock()
@@ -71,7 +71,7 @@ func (e *Engine) Heartbeat(id, state string) error {
 		return err
 	}
 	if i.State == "disconnected" {
-		return errors.New("实例已注销，请重新注册")
+		return errors.New("instance was unregistered; register again")
 	}
 	i.Heartbeat = e.clock()
 	if hasExact(state, "idle", "running", "awaiting_review") {
@@ -89,7 +89,7 @@ func (e *Engine) Disconnect(id string) error {
 	i.State = "disconnected"
 	i.DisconnectReason = "session_end"
 	i.Online = false
-	if err := e.change("instances", id, i, "instance.disconnect", AgentName(i.Agent)+" 会话已断开"); err != nil {
+	if err := e.change("instances", id, i, "instance.disconnect", AgentName(i.Agent)+" session disconnected"); err != nil {
 		return err
 	}
 	rs, err := e.Reviews()
@@ -102,7 +102,7 @@ func (e *Engine) Disconnect(id string) error {
 			r.NeedsHuman = false
 			r.Execution = "not_executed"
 			r.RuleID = "E_SESSION"
-			r.Comment = "原会话已结束，本次审查已取消。"
+			r.Comment = "The original session ended and this review was cancelled."
 			now := e.clock()
 			r.DecidedAt = &now
 			if err = e.commitReview(r, "review.cancel"); err != nil {
@@ -117,13 +117,13 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 	defer e.mu.Unlock()
 	var i Instance
 	if err := e.get("instances", in.InstanceID, &i); err != nil {
-		return Review{}, errors.New("Agent 实例尚未注册")
+		return Review{}, errors.New("agent instance is not registered yet")
 	}
 	if i.State == "disconnected" || e.clock().Sub(i.Heartbeat) > 30*time.Second {
-		return Review{}, errors.New("Agent 实例已失联")
+		return Review{}, errors.New("agent instance lost contact")
 	}
 	if in.CallID == "" || in.ToolName == "" || in.Arguments == nil {
-		return Review{}, errors.New("审查参数缺失")
+		return Review{}, errors.New("review parameters are missing")
 	}
 	b, err := json.Marshal(struct {
 		Tool    string
@@ -139,7 +139,7 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 	var existing Review
 	if err = e.get("reviews", id, &existing); err == nil {
 		if existing.Digest != hex.EncodeToString(digest[:]) {
-			return Review{}, errors.New("工具调用标识已被不同参数使用")
+			return Review{}, errors.New("the tool call ID was already used with different arguments")
 		}
 		return normalizeReviewPath(existing), nil
 	} else if !errors.Is(err, sql.ErrNoRows) {
@@ -199,7 +199,7 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 	r.NeedsHuman = s.Mode == "human" || forcedHuman
 	if forcedHuman {
 		r.ReviewPath = "human"
-		r.Comment = "脚本未能完整采集，无法排除隐藏副作用，需要人工确认。"
+		r.Comment = "The script could not be captured in full, so hidden side effects cannot be ruled out. Human confirmation is required."
 	}
 	if s.Mode == "model" && !forcedHuman {
 		s.Prompt = modelPrompt(s.Prompt)
@@ -254,31 +254,31 @@ func (e *Engine) Decide(id, digest, decision, comment string) (Review, error) {
 		return r, err
 	}
 	if r.Digest != digest {
-		return r, errors.New("参数摘要不匹配")
+		return r, errors.New("argument digest does not match")
 	}
 	if !hasExact(decision, "approve", "reject") {
-		return r, errors.New("无效裁决")
+		return r, errors.New("invalid decision")
 	}
 	if r.Mode != "human" && r.ReviewPath != "human" {
-		return r, errors.New("此调用不属于人工审批")
+		return r, errors.New("this call is not under human approval")
 	}
 	if r.Decision != "pending" {
 		if r.Decision == decision && r.RuleID == "HUMAN" {
 			return r, nil
 		}
-		return r, errors.New("此调用已裁决或已失效")
+		return r, errors.New("this call was already decided or is no longer valid")
 	}
 	if e.clock().After(r.Deadline) {
-		return r, errors.New("审批已过期")
+		return r, errors.New("approval has expired")
 	}
 	if decision == "reject" && comment == "" {
-		return r, errors.New("请填写拒绝原因")
+		return r, errors.New("enter a rejection reason")
 	}
 	r.Decision = decision
 	r.NeedsHuman = false
 	r.RuleID = "HUMAN"
 	if comment == "" {
-		comment = "人工批准本次工具调用"
+		comment = "Human approved this tool call"
 	}
 	r.Comment = RedactText(comment)
 	now := e.clock()
@@ -297,25 +297,25 @@ func (e *Engine) Result(id, instance, state, result string) error {
 		return err
 	}
 	if r.InstanceID != instance {
-		return errors.New("实例不匹配")
+		return errors.New("instance does not match")
 	}
 	if r.Decision == "pending" {
-		return errors.New("尚未裁决")
+		return errors.New("no decision yet")
 	}
 	if r.Decision == "reject" {
 		if state != "not_executed" {
-			return errors.New("被拒绝的调用不能报告执行成功")
+			return errors.New("a rejected call cannot report successful execution")
 		}
 		return nil
 	}
 	if !hasExact(state, "succeeded", "failed", "not_executed") {
-		return errors.New("无效执行结果")
+		return errors.New("invalid execution result")
 	}
 	if r.Execution != "awaiting_execution" {
 		if r.Execution == state {
 			return nil
 		}
-		return errors.New("执行结果已终结")
+		return errors.New("execution result is already final")
 	}
 	r.Execution = state
 	r.Result = RedactText(result)
@@ -324,7 +324,7 @@ func (e *Engine) Result(id, instance, state, result string) error {
 func (e *Engine) LocalDiagnostic() map[string]any {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return map[string]any{"version": Version, "mode": e.Settings.Mode, "dataDir": e.Dir, "modelConfigured": e.Settings.Model.Tested, "toolBoundary": "Pi tool_call；不包含脚本内部子调用、其它扩展 pi.exec 或用户 ! 命令"}
+	return map[string]any{"version": Version, "mode": e.Settings.Mode, "dataDir": e.Dir, "modelConfigured": e.Settings.Model.Tested, "toolBoundary": "Pi tool_call; excludes sub-calls inside scripts, pi.exec from other extensions and user ! commands"}
 }
 func (e *Engine) ExportCalls() ([]byte, error) {
 	rs, err := e.Reviews()
@@ -344,7 +344,7 @@ func (e *Engine) Secret(name string) (string, error) {
 	}
 	token := ID() + ID()
 	if err = AtomicFile(path, []byte(token), 0600); err != nil {
-		return "", fmt.Errorf("保存令牌失败: %w", err)
+		return "", fmt.Errorf("failed to save token: %w", err)
 	}
 	return token, nil
 }

@@ -17,10 +17,10 @@ import (
 func ValidateModelURL(base string) error {
 	u, err := url.Parse(base)
 	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return errors.New("模型地址无效，不允许内嵌凭据、查询参数或片段")
+		return errors.New("model address is invalid; embedded credentials, query parameters and fragments are not allowed")
 	}
 	if u.Scheme != "https" && !(u.Scheme == "http" && hasExact(u.Hostname(), "localhost", "127.0.0.1", "::1")) {
-		return errors.New("远程模型服务须使用 HTTPS；本机可使用 HTTP")
+		return errors.New("remote model services must use HTTPS; HTTP is allowed locally")
 	}
 	return nil
 }
@@ -39,7 +39,7 @@ func callModelWithUsage(ctx context.Context, s Settings, in any, usage **TokenUs
 	allUsageKnown := true
 	for attempt := 0; ; attempt++ {
 		if ctx.Err() != nil {
-			return Decision{}, errors.New("模型连接失败或请求超时")
+			return Decision{}, errors.New("model connection failed or the request timed out")
 		}
 		var current *TokenUsage
 		reply, err := callModelText(ctx, s, messages, &current)
@@ -65,14 +65,14 @@ func callModelWithUsage(ctx context.Context, s Settings, in any, usage **TokenUs
 			return d, err
 		}
 		if attempt == 3 {
-			return Decision{}, fmt.Errorf("%w；JSON 格式纠正已重试 3 次，仍不合格", err)
+			return Decision{}, fmt.Errorf("%w; JSON format correction was retried 3 times and still failed", err)
 		}
 		if strings.TrimSpace(reply) == "" {
-			reply = "（上一条模型响应为空）"
+			reply = "(the previous model response was empty)"
 		}
 		messages = append(messages,
 			map[string]string{"role": "assistant", "content": reply},
-			map[string]string{"role": "user", "content": "上一条裁决的 JSON 格式校验失败：" + formatErr.detail + "。请根据最初的审查输入和原有规则重新输出完整裁决，只修正格式，不因格式反馈改变安全判断。仅输出一个 JSON 对象，且仅包含字符串字段 decision 和 comment，不要 Markdown、解释文字或额外字段。decision 只能为 approve 或 reject；comment 使用“实际操作：...；成功后的后果：...；命中规则：...”结构，规则编号须与结论一致。"},
+			map[string]string{"role": "user", "content": "The previous decision failed JSON format validation: " + formatErr.detail + ". Based on the original review input and the existing rules, output the complete decision again, fixing only the format and not changing the security judgment because of the format feedback. Output exactly one JSON object containing only the string fields decision and comment, with no Markdown, explanatory text or extra fields. decision must be approve or reject; comment must use the structure 'Actual operation: ...; Consequence if successful: ...; Matched rule: ...', and the rule ID must agree with the conclusion."},
 		)
 	}
 }
@@ -91,7 +91,7 @@ func callModelText(ctx context.Context, s Settings, messages []map[string]string
 		return "", err
 	}
 	if s.Model.Model == "" {
-		return "", errors.New("模型名称为空")
+		return "", errors.New("model name is empty")
 	}
 	endpoint := strings.TrimRight(s.Model.BaseURL, "/")
 	payload := map[string]any{"model": s.Model.Model, "stream": false, "messages": append([]map[string]string{{"role": "system", "content": s.Prompt}}, messages...)}
@@ -120,14 +120,16 @@ func callModelText(ctx context.Context, s Settings, messages []map[string]string
 		req.Header.Set("Authorization", "Bearer "+s.Model.APIKey)
 	}
 
-	client := &http.Client{Timeout: time.Duration(s.ModelSeconds) * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return errors.New("模型端点不允许重定向") }}
+	client := &http.Client{Timeout: time.Duration(s.ModelSeconds) * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+		return errors.New("model endpoint does not allow redirects")
+	}}
 	res, err := client.Do(req)
 	if err != nil {
-		return "", errors.New("模型连接失败或请求超时")
+		return "", errors.New("model connection failed or the request timed out")
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return "", fmt.Errorf("模型返回 HTTP %d", res.StatusCode)
+		return "", fmt.Errorf("model returned HTTP %d", res.StatusCode)
 	}
 	if s.Model.Protocol == "anthropic" {
 		var out struct {
@@ -139,11 +141,11 @@ func callModelText(ctx context.Context, s Settings, messages []map[string]string
 			StopReason string `json:"stop_reason"`
 		}
 		if err = json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&out); err != nil {
-			return "", errors.New("Anthropic 模型响应格式无效")
+			return "", errors.New("Anthropic model response format is invalid")
 		}
 		*usage = parseUsage(out.Usage, s.Model.Protocol)
 		if out.StopReason != "end_turn" {
-			return "", errors.New("Anthropic 模型没有完成文本裁决")
+			return "", errors.New("Anthropic model did not finish a text decision")
 		}
 		texts := []string{}
 		for _, c := range out.Content {
@@ -163,14 +165,14 @@ func callModelText(ctx context.Context, s Settings, messages []map[string]string
 		} `json:"choices"`
 	}
 	if err = json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&out); err != nil {
-		return "", errors.New("模型响应格式无效")
+		return "", errors.New("model response format is invalid")
 	}
 	*usage = parseUsage(out.Usage, s.Model.Protocol)
 	if len(out.Choices) != 1 {
-		return "", errors.New("模型响应格式无效")
+		return "", errors.New("model response format is invalid")
 	}
 	if reason := out.Choices[0].FinishReason; reason != "" && reason != "stop" {
-		return "", errors.New("模型裁决未完整输出")
+		return "", errors.New("model decision output was incomplete")
 	}
 	return out.Choices[0].Message.Content, nil
 }
@@ -178,7 +180,7 @@ func ParseModelDecision(text string) (Decision, error) {
 	var fields map[string]json.RawMessage
 	if json.Unmarshal([]byte(text), &fields) == nil {
 		if _, ok := fields["editedArguments"]; ok {
-			return Decision{}, errors.New("首版不执行模型的 editedArguments；请由 Pi 调整参数后重新提交审查")
+			return Decision{}, errors.New("editedArguments from the model are not applied in this version; have Pi adjust the arguments and resubmit for review")
 		}
 	}
 	var out struct {
@@ -188,40 +190,40 @@ func ParseModelDecision(text string) (Decision, error) {
 	dec := json.NewDecoder(strings.NewReader(text))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&out); err != nil {
-		detail := "只允许 decision、comment 两个字符串字段，不允许额外字段"
+		detail := "only the two string fields decision and comment are allowed; extra fields are not"
 		var syntaxErr *json.SyntaxError
 		var typeErr *json.UnmarshalTypeError
 		switch {
 		case errors.As(err, &syntaxErr):
-			detail = fmt.Sprintf("JSON 语法错误（字节位置 %d），请检查引号、逗号及对象外的文本或代码围栏", syntaxErr.Offset)
+			detail = fmt.Sprintf("JSON syntax error (byte offset %d); check quotes, commas and any text or code fences outside the object", syntaxErr.Offset)
 		case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
-			detail = "响应为空或 JSON 不完整，请输出完整的 JSON 对象"
+			detail = "the response is empty or the JSON is incomplete; output a complete JSON object"
 		case errors.As(err, &typeErr):
-			detail = "JSON 类型错误：顶层必须为对象，decision 和 comment 必须为字符串"
+			detail = "JSON type error: the top level must be an object, and decision and comment must be strings"
 		}
-		return Decision{}, &modelJSONError{message: "模型裁决必须为 JSON，且仅包含 decision、comment", detail: detail}
+		return Decision{}, &modelJSONError{message: "model decision must be JSON containing only decision and comment", detail: detail}
 	}
 	var extra any
 	if dec.Decode(&extra) != io.EOF {
-		return Decision{}, &modelJSONError{message: "模型输出包含多余内容", detail: "JSON 对象之后包含多余内容，只能输出一个 JSON 对象"}
+		return Decision{}, &modelJSONError{message: "model output has extra content", detail: "there is extra content after the JSON object; output exactly one JSON object"}
 	}
 	for _, key := range []string{"decision", "comment"} {
 		if raw, ok := fields[key]; !ok || string(raw) == "null" {
-			return Decision{}, &modelJSONError{message: "模型裁决必须为 JSON，且仅包含 decision、comment", detail: "缺少字符串字段 " + key + "，或该字段为 null"}
+			return Decision{}, &modelJSONError{message: "model decision must be JSON containing only decision and comment", detail: "missing string field " + key + ", or the field is null"}
 		}
 	}
-	if !hasExact(out.Decision, "approve", "reject") || !strings.Contains(out.Comment, "实际操作：") || !strings.Contains(out.Comment, "成功后的后果：") {
-		return Decision{}, errors.New("模型裁决缺少有效结论或说明")
+	if !hasExact(out.Decision, "approve", "reject") || !(strings.Contains(out.Comment, "Actual operation:") || strings.Contains(out.Comment, "实际操作：")) || !(strings.Contains(out.Comment, "Consequence if successful:") || strings.Contains(out.Comment, "成功后的后果：")) {
+		return Decision{}, errors.New("model decision is missing a valid conclusion or explanation")
 	}
-	m := regexp.MustCompile(`命中规则[：:]\s*(R[1-7]|A[1-7]|D1)\b`).FindStringSubmatch(out.Comment)
+	m := regexp.MustCompile(`(?:Matched rule|命中规则)\s*[:：]\s*(R[1-7]|A[1-7]|D1)\b`).FindStringSubmatch(out.Comment)
 	if len(m) != 2 {
-		return Decision{}, errors.New("模型裁决缺少有效规则编号")
+		return Decision{}, errors.New("model decision is missing a valid rule ID")
 	}
 	if strings.HasPrefix(m[1], "R") && out.Decision != "reject" {
-		return Decision{}, errors.New("模型结论与拒绝规则冲突")
+		return Decision{}, errors.New("model conclusion conflicts with a reject rule")
 	}
 	if (strings.HasPrefix(m[1], "A") || m[1] == "D1") && out.Decision != "approve" {
-		return Decision{}, errors.New("模型结论与允许规则冲突")
+		return Decision{}, errors.New("model conclusion conflicts with an allow rule")
 	}
 	return Decision{Decision: out.Decision, Comment: RedactText(out.Comment), RuleID: m[1]}, nil
 }
@@ -240,7 +242,7 @@ func (e *Engine) modelReview(r Review, s Settings) {
 	var usage *TokenUsage
 	d, err := callModelWithUsage(ctx, s, modelInput(r), &usage)
 	if err != nil {
-		d = Decision{Decision: "reject", RuleID: "E_MODEL", Comment: err.Error() + "；本次调用已拒绝，请检查审查模型配置。"}
+		d = Decision{Decision: "reject", RuleID: "E_MODEL", Comment: err.Error() + "; this call was rejected. Check the review model configuration."}
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -260,7 +262,7 @@ func (e *Engine) modelReview(r Review, s Settings) {
 		current.NeedsHuman = true
 		current.ReviewPath = "human"
 		current.RuleID = ""
-		current.Comment = "脚本未能完整采集，无法排除隐藏副作用，需要人工确认。"
+		current.Comment = "The script could not be captured in full, so hidden side effects cannot be ruled out. Human confirmation is required."
 		current.DecidedAt = nil
 		current.Execution = "not_executed"
 		e.commitReview(current, "review.model.incomplete")
@@ -283,7 +285,7 @@ func (e *Engine) TestModel(ctx context.Context) error {
 	requestSettings := s
 	requestSettings.Prompt = modelPrompt(s.Prompt)
 	var usage *TokenUsage
-	_, err := callModelWithUsage(ctx, requestSettings, modelInput(Review{ReviewInput: ReviewInput{ToolName: "read", Arguments: map[string]any{"path": "README.md"}, UserMessage: "读取项目说明"}}), &usage)
+	_, err := callModelWithUsage(ctx, requestSettings, modelInput(Review{ReviewInput: ReviewInput{ToolName: "read", Arguments: map[string]any{"path": "README.md"}, UserMessage: "Read the project description"}}), &usage)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if usageErr := e.recordUsage(ID(), "", "test", s, usage, err != nil); usageErr != nil {
@@ -293,10 +295,10 @@ func (e *Engine) TestModel(ctx context.Context) error {
 		return err
 	}
 	if e.Settings.Version != s.Version {
-		return errors.New("配置已变化，请重新测试")
+		return errors.New("config changed; test again")
 	}
 	s.Model.Tested = true
-	if err = e.change("settings", "current", s, "model.test", "模型连接和结构化裁决测试成功"); err != nil {
+	if err = e.change("settings", "current", s, "model.test", "model connection and structured decision test succeeded"); err != nil {
 		return err
 	}
 	e.Settings = s

@@ -50,14 +50,14 @@ function commandTokens(command: string): string[] {
 }
 
 function captureReferences(command: string, workingDir: string): Array<{ path?: string; problem?: string; direct?: boolean }> {
-  if (/[$`]|\$\(|\$\{|[*?\[\]]/.test(command)) return [{ problem: "执行脚本路径包含动态展开，无法确定实际文件" }];
+  if (/[$`]|\$\(|\$\{|[*?\[\]]/.test(command)) return [{ problem: "Script path contains dynamic expansion; the actual file cannot be determined" }];
   const tokens = commandTokens(command);
   const refs: Array<{ path?: string; problem?: string; direct?: boolean }> = [];
   let dir = workingDir;
   const add = (raw: string | undefined, direct = false) => {
     const value = literalToken(raw || "");
     if (!value) {
-      refs.push({ problem: "执行脚本路径包含动态展开，无法确定实际文件" });
+      refs.push({ problem: "Script path contains dynamic expansion; the actual file cannot be determined" });
       return;
     }
     refs.push({ path: resolve(dir, value), direct });
@@ -65,7 +65,7 @@ function captureReferences(command: string, workingDir: string): Array<{ path?: 
   for (let i = 0; i < tokens.length; i++) {
     const raw = literalToken(tokens[i]);
     if (!raw) {
-      refs.push({ problem: "动态命令入口，无法确定是否执行脚本" });
+      refs.push({ problem: "Dynamic command entry; cannot determine whether a script is executed" });
       continue;
     }
     const base = basename(raw);
@@ -83,19 +83,19 @@ function captureReferences(command: string, workingDir: string): Array<{ path?: 
       for (i++; i < tokens.length; i++) {
         const value = literalToken(tokens[i]);
         if (!value) {
-          refs.push({ problem: "解释器参数包含动态展开，无法确定实际脚本" });
+          refs.push({ problem: "Interpreter arguments contain dynamic expansion; the actual script cannot be determined" });
           break;
         }
         if (["-c", "-e", "--eval", "--print"].includes(value)) {
           if (value === "-c" && tokens[i + 1]) {
             const inline = literalToken(tokens[++i]);
             if (inline) refs.push(...captureReferences(inline, dir));
-            else refs.push({ problem: "Shell 内联执行内容不确定" });
+            else refs.push({ problem: "Shell inline code is undetermined" });
           }
           break;
         }
         if (value === "-m" || value === "-") {
-          refs.push({ problem: "解释器未提供可确定的本地脚本文件" });
+          refs.push({ problem: "Interpreter was not given a determinable local script file" });
           break;
         }
         if (value.startsWith("-")) continue;
@@ -128,7 +128,7 @@ export function captureScripts(workingDir: string, tool: string, args: Record<st
     const key = `${ref.path || ""}:${ref.problem || ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const file: ReviewScript = { path: ref.path || "<无法确定的脚本>", complete: false };
+    const file: ReviewScript = { path: ref.path || "<undetermined script>", complete: false };
     if (ref.problem) {
       file.readError = ref.problem;
       status = "incomplete";
@@ -136,18 +136,18 @@ export function captureScripts(workingDir: string, tool: string, args: Record<st
       continue;
     }
     if (files.length >= MAX_SCRIPT_FILES) {
-      file.readError = "本次调用超过 8 个脚本文件";
+      file.readError = "This call exceeds 8 script files";
       status = "incomplete";
       files.push(file);
       break;
     }
     try {
       const info = statSync(ref.path!);
-      if (!info.isFile()) throw new Error("不是普通文件");
+      if (!info.isFile()) throw new Error("Not a regular file");
       if (info.size > MAX_SCRIPT_BYTES) {
         file.bytes = info.size;
         file.truncated = true;
-        file.readError = "脚本超过完整快照限制（1 MiB）";
+        file.readError = "Script exceeds the full snapshot limit (1 MiB)";
         status = "incomplete";
         files.push(file);
         continue;
@@ -155,12 +155,12 @@ export function captureScripts(workingDir: string, tool: string, args: Record<st
       const content = readFileSync(ref.path!);
       file.bytes = content.length;
       if (ref.direct && (content.subarray(0, 4).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46])) || content.subarray(0, 2).equals(Buffer.from([0x4d, 0x5a])))) continue;
-      if (tool === "shell_send") throw new Error("交互会话可能已切换目录或连接远端，无法确认本机文件就是实际执行脚本");
+      if (tool === "shell_send") throw new Error("The interactive session may have changed directory or connected to a remote host; cannot confirm the local file is the script actually executed");
       const text = content.toString("utf8");
-      if (!Buffer.from(text, "utf8").equals(content) || content.includes(0)) throw new Error("脚本不是有效 UTF-8 文本");
+      if (!Buffer.from(text, "utf8").equals(content) || content.includes(0)) throw new Error("Script is not valid UTF-8 text");
       if (content.length > MAX_SCRIPT_BYTES || total + content.length > MAX_SCRIPT_BYTES) {
         file.truncated = true;
-        file.readError = "脚本超过完整快照总量限制（1 MiB），未附加部分内容";
+        file.readError = "Scripts exceed the total full snapshot limit (1 MiB); partial content was not attached";
         status = "incomplete";
         files.push(file);
         continue;
@@ -171,7 +171,7 @@ export function captureScripts(workingDir: string, tool: string, args: Record<st
       total += content.length;
       files.push(file);
     } catch (error) {
-      file.readError = error instanceof Error ? error.message : "脚本读取失败";
+      file.readError = error instanceof Error ? error.message : "Script read failed";
       status = "incomplete";
       files.push(file);
     }
@@ -199,7 +199,7 @@ export function validateDecision(value: unknown): Review {
     typeof r.comment !== "string" ||
     !Number.isFinite(Date.parse(r.deadline))
   )
-    throw new Error("审查服务返回非法裁决");
+    throw new Error("Review service returned an invalid decision");
   return r;
 }
 
@@ -239,7 +239,7 @@ export default function aegisHook(pi: ExtensionAPI) {
     body?: unknown,
     signal = controller.signal,
   ): Promise<any> {
-    if (!config) throw new Error("Hook 未配置");
+    if (!config) throw new Error("Hook is not configured");
     const response = await fetch(`${config.endpoint}/api/v1${path}`, {
       method: body === undefined ? "GET" : "POST",
       headers: {
@@ -250,7 +250,7 @@ export default function aegisHook(pi: ExtensionAPI) {
       signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
     });
     if (!response.ok)
-      throw new Error(`审查服务不可用（HTTP ${response.status}）`);
+      throw new Error(`Review service unavailable (HTTP ${response.status})`);
     return response.json();
   }
   function setStatus(ctx: ExtensionContext, text: string) {
@@ -269,7 +269,7 @@ export default function aegisHook(pi: ExtensionAPI) {
     });
     if (ownEpoch === epoch) {
       registered = true;
-      setStatus(ctx, "AegisHook · 防护已连接");
+      setStatus(ctx, "AegisHook · Protection connected");
     }
   }
   pi.on("session_start", async (_event, ctx) => {
@@ -303,11 +303,11 @@ export default function aegisHook(pi: ExtensionAPI) {
         typeof candidate.token !== "string" ||
         !candidate.token
       )
-        throw new Error("Hook 连接配置无效");
+        throw new Error("Hook connection config is invalid");
       config = candidate;
       await register(ctx);
     } catch {
-      setStatus(ctx, "AegisHook · 审查不可用，工具将被拒绝");
+      setStatus(ctx, "AegisHook · Review unavailable; tool calls will be rejected");
     }
     let beating = false;
     timer = setInterval(async () => {
@@ -321,7 +321,7 @@ export default function aegisHook(pi: ExtensionAPI) {
           });
       } catch {
         registered = false;
-        setStatus(ctx, "AegisHook · 连接失败，工具将被拒绝");
+        setStatus(ctx, "AegisHook · Connection failed; tool calls will be rejected");
       } finally {
         beating = false;
       }
@@ -372,17 +372,17 @@ export default function aegisHook(pi: ExtensionAPI) {
       );
       calls.set(event.toolCallId, { id: review.id, decision: review.decision });
       while (review.decision === "pending") {
-        setStatus(ctx, "AegisHook · 等待审查，工具尚未执行");
+        setStatus(ctx, "AegisHook · Waiting for review; tool not yet executed");
         if (Date.now() > Date.parse(review.deadline) + 1000)
-          throw new Error("审查等待超时");
+          throw new Error("Review wait timed out");
         await new Promise<void>((resolve, reject) => {
           if (signal.aborted) {
-            reject(new Error("会话已结束"));
+            reject(new Error("Session ended"));
             return;
           }
           const abort = () => {
             clearTimeout(t);
-            reject(new Error("会话已结束"));
+            reject(new Error("Session ended"));
           };
           const t = setTimeout(() => {
             signal.removeEventListener("abort", abort);
@@ -402,8 +402,8 @@ export default function aegisHook(pi: ExtensionAPI) {
       setStatus(
         ctx,
         review.decision === "approve"
-          ? "AegisHook · 已允许本次调用"
-          : "AegisHook · 已拦截",
+          ? "AegisHook · This call was approved"
+          : "AegisHook · Blocked",
       );
       if (review.decision === "reject")
         return { block: true, reason: review.comment };
@@ -415,14 +415,14 @@ export default function aegisHook(pi: ExtensionAPI) {
           await request(`/reviews/${call.id}/result`, {
             instanceId,
             state: "not_executed",
-            result: "适配器校验未通过",
+            result: "Adapter validation failed",
           });
         } catch {}
       }
-      setStatus(ctx, "AegisHook · 本次调用已拒绝");
+      setStatus(ctx, "AegisHook · This call was rejected");
       return {
         block: true,
-        reason: `AegisHook 拒绝执行：${error instanceof Error ? error.message : "审查异常"}。工具未执行，请检查控制台后重新提交。`,
+        reason: `AegisHook rejected execution: ${error instanceof Error ? error.message : "review error"}. The tool was not executed; check the console and resubmit.`,
       };
     } finally {
       pending--;
@@ -452,7 +452,7 @@ export default function aegisHook(pi: ExtensionAPI) {
         break;
       } catch {}
     }
-    if (!delivered) setStatus(ctx, "AegisHook · 执行结果回传失败");
+    if (!delivered) setStatus(ctx, "AegisHook · Failed to report execution result");
     calls.delete(event.toolCallId);
   });
 }

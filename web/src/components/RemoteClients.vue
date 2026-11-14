@@ -12,10 +12,10 @@ const recent = computed(() =>
 );
 const state = (s: string) =>
   ({
-    approved: "已批准，等待领取",
-    rejected: "已拒绝",
-    consumed: "已接入",
-    expired: "已过期",
+    approved: "Approved, waiting to be claimed",
+    rejected: "Rejected",
+    consumed: "Connected",
+    expired: "Expired",
   })[s] || s;
 onMounted(async () => {
   try {
@@ -28,7 +28,7 @@ async function decide(id: string, decision: string) {
   busy.value = id;
   await store.action(
     () => api(`/client-requests/${id}/decision`, "POST", { decision }),
-    "接入申请已处理",
+    "Access request handled",
   );
   busy.value = "";
 }
@@ -36,7 +36,7 @@ async function revoke(id: string) {
   busy.value = id;
   await store.action(
     () => api(`/client-nodes/${id}`, "DELETE"),
-    "设备凭据已撤销，后续 Hook 请求将被拒绝",
+    "Device credential revoked; later hook requests will be rejected",
   );
   busy.value = "";
 }
@@ -53,52 +53,52 @@ const psCommand = computed(() =>
 async function copy(value: string) {
   try {
     await navigator.clipboard.writeText(value);
-    store.notify("命令已复制");
+    store.notify("Command copied");
   } catch {
-    store.error = "无法自动复制，请选中命令手动复制";
+    store.error = "Could not copy automatically; select the command and copy it manually";
   }
 }
 </script>
 
 <template>
-  <section class="panel remote-clients" aria-label="远程设备">
+  <section class="panel remote-clients" aria-label="Remote devices">
     <div class="panel-heading">
-      <strong>远程设备</strong
+      <strong>Remote devices</strong
       ><span class="badge pending" v-if="pending.length"
-        >{{ pending.length }} 个待接入</span
+        >{{ pending.length }} awaiting access</span
       >
     </div>
     <p class="muted">
-      在目标机器运行安装脚本，再核对终端与下方申请编号后批准。脚本只安装或卸载
-      Hook，不启动后台服务。
+      Run the install script on the target machine, then check the request ID in the terminal against the one below and approve. The script only installs or uninstalls the
+      hook and does not start a background service.
     </p>
     <details class="download-details">
-      <summary>获取 Windows / macOS / Linux 安装命令</summary>
+      <summary>Get Windows / macOS / Linux install commands</summary>
       <template v-if="installer">
         <div class="command-heading">
           <strong>macOS / Linux</strong
-          ><button @click="copy(shellCommand)">复制命令</button>
+          ><button @click="copy(shellCommand)">Copy command</button>
         </div>
         <pre><code>{{ shellCommand }}</code></pre>
         <div class="command-heading">
           <strong>Windows PowerShell</strong
-          ><button @click="copy(psCommand)">复制命令</button>
+          ><button @click="copy(psCommand)">Copy command</button>
         </div>
         <pre><code>{{ psCommand }}</code></pre>
         <p class="muted tiny">
-          项目安装使用 --scope project --project /绝对路径；加 --switch
-          切换全局与项目范围。PowerShell 对应 -Scope project -Project C:\路径
-          -SwitchScope。卸载时将 install 换成 uninstall，并保留原来的
-          Agent、范围及客户端目录。
+          For a project install use --scope project --project /absolute/path; add --switch
+          to switch between global and project scope. The PowerShell equivalent is -Scope project -Project C:\path
+          -SwitchScope. To uninstall, replace install with uninstall and keep the original
+          Agent, scope and client directory.
         </p>
         <p class="muted tiny">
-          通过 HTTPS 地址或 SSH
-          隧道接入。安装链接不含凭据；每台获准设备使用独立、可撤销的连接凭据。
+          Connect through an HTTPS address or an SSH
+          tunnel. The install link carries no credentials; each approved device uses its own revocable connection credential.
         </p>
       </template>
     </details>
     <div class="request-list">
-      <p v-if="!pending.length" class="muted">暂无待处理的接入申请。</p>
+      <p v-if="!pending.length" class="muted">No pending access requests.</p>
       <article
         v-for="r in pending"
         :key="r.id"
@@ -111,7 +111,7 @@ async function copy(value: string) {
         </div>
         <code class="request-id">{{ r.id }}</code>
         <small class="muted"
-          >申请于 {{ date(r.createdAt) }} · {{ date(r.expiresAt) }} 过期</small
+          >Requested {{ date(r.createdAt) }} · expires {{ date(r.expiresAt) }}</small
         >
         <div class="actions">
           <button
@@ -119,15 +119,15 @@ async function copy(value: string) {
             :disabled="busy === r.id"
             @click="decide(r.id, 'approve')"
           >
-            允许接入</button
+            Allow access</button
           ><button :disabled="busy === r.id" @click="decide(r.id, 'reject')">
-            拒绝</button
+            Reject</button
           ><button
             class="danger"
             :disabled="busy === r.id"
             @click="decide(r.id, 'block_ip')"
           >
-            拒绝并拉黑 IP
+            Reject and block IP
           </button>
         </div>
       </article>
@@ -136,20 +136,20 @@ async function copy(value: string) {
       <table class="remote-node-table">
         <thead>
           <tr>
-            <th>已接入设备</th>
-            <th>系统</th>
-            <th>状态</th>
-            <th>操作</th>
+            <th>Connected devices</th>
+            <th>OS</th>
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="n in store.clientNodes" :key="n.id">
             <td>
-              <strong>{{ n.name || "未命名设备" }}</strong
+              <strong>{{ n.name || "Unnamed device" }}</strong
               ><small class="mono">{{ n.id }}</small>
             </td>
             <td>{{ n.platform }}</td>
-            <td>{{ n.revoked ? "已撤销" : "可接入" }}</td>
+            <td>{{ n.revoked ? "Revoked" : "Active" }}</td>
             <td>
               <button
                 v-if="!n.revoked"
@@ -157,7 +157,7 @@ async function copy(value: string) {
                 :disabled="busy === n.id"
                 @click="revoke(n.id)"
               >
-                撤销接入
+                Revoke access
               </button>
             </td>
           </tr>
@@ -165,26 +165,26 @@ async function copy(value: string) {
       </table>
     </div>
     <details v-if="store.clientBlocks.length">
-      <summary>IP 黑名单（{{ store.clientBlocks.length }}）</summary>
+      <summary>IP blocklist ({{ store.clientBlocks.length }})</summary>
       <div v-for="b in store.clientBlocks" :key="b.id" class="blocked-row">
         <code>{{ b.ip }}</code
         ><button
           @click="
             store.action(
               () => api(`/client-ip-blocks/${b.id}`, 'DELETE'),
-              '已解除 IP 黑名单',
+              'IP unblocked',
             )
           "
         >
-          解除拉黑
+          Unblock
         </button>
       </div>
       <p class="muted tiny">
-        同一出口 IP 可能包含多台设备；解除拉黑不会恢复已撤销的设备凭据。
+        One egress IP may cover several devices; unblocking does not restore revoked device credentials.
       </p>
     </details>
     <details v-if="recent.length">
-      <summary>最近处理的申请</summary>
+      <summary>Recently handled requests</summary>
       <p v-for="r in recent" :key="r.id" class="muted">
         {{ r.name }} · {{ r.ip }} · {{ state(r.state) }}
       </p>

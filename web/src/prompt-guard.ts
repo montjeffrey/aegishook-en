@@ -22,7 +22,7 @@ export function setDataGuard(
       prompt.includes(template.dataGuardStart) ||
       prompt.includes(template.dataGuardEnd)
     )
-      throw new Error("数据获取限制的起止标记不完整，请先修复提示词中的标记。");
+      throw new Error("The data access limits start/end markers are incomplete; fix the markers in the prompt first.");
     const anchor = prompt.indexOf(template.dataGuardAnchor);
     const index = anchor < 0 ? 0 : anchor;
     return (

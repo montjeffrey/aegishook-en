@@ -56,39 +56,39 @@ type clientEdit struct {
 func ClientOperation(action string, o ClientOptions) (result ClientResult, err error) {
 	result = ClientResult{Action: action, Agent: o.Agent, Scope: o.Scope}
 	if action != "install" && action != "uninstall" {
-		return result, errors.New("客户端只支持 install / uninstall")
+		return result, errors.New("the client only supports install / uninstall")
 	}
 	if AgentName(o.Agent) == "" || (o.Scope != "global" && o.Scope != "project") {
-		return result, errors.New("请选择有效的 Agent 和 global/project 范围")
+		return result, errors.New("choose a valid agent and a global/project scope")
 	}
 	if !filepath.IsAbs(o.Dir) {
-		return result, errors.New("客户端目录必须是绝对路径")
+		return result, errors.New("client directory must be an absolute path")
 	}
 	o.Dir = filepath.Clean(o.Dir)
 	if o.Dir == filepath.VolumeName(o.Dir)+string(filepath.Separator) {
-		return result, errors.New("客户端目录不能是文件系统根目录")
+		return result, errors.New("client directory cannot be the filesystem root")
 	}
 	if _, e := os.Stat(filepath.Join(o.Dir, "aegishook.db")); e == nil {
-		return result, errors.New("客户端目录不能使用服务端数据目录")
+		return result, errors.New("client directory cannot be the server data directory")
 	}
 	if o.Scope == "project" {
 		if !filepath.IsAbs(o.Project) {
-			return result, errors.New("项目须使用绝对路径")
+			return result, errors.New("project must use an absolute path")
 		}
 		original := filepath.Clean(o.Project)
 		o.Project, err = filepath.EvalSymlinks(original)
 		if err != nil {
 			if action != "uninstall" || !os.IsNotExist(err) {
-				return result, errors.New("项目目录不存在")
+				return result, errors.New("project directory does not exist")
 			}
 			o.Project = canonicalMissingPath(original)
 		}
 		st, e := os.Stat(o.Project)
 		if !(action == "uninstall" && os.IsNotExist(e)) && (e != nil || !st.IsDir()) {
-			return result, errors.New("项目须为目录")
+			return result, errors.New("project must be a directory")
 		}
 	} else if o.Project != "" {
-		return result, errors.New("global 范围不能同时指定项目")
+		return result, errors.New("the global scope cannot specify a project")
 	}
 	if action == "install" {
 		o.Endpoint, err = localaddr.Endpoint(o.Endpoint)
@@ -96,7 +96,7 @@ func ClientOperation(action string, o ClientOptions) (result ClientResult, err e
 			return result, err
 		}
 		if !filepath.IsAbs(o.Binary) {
-			return result, errors.New("Hook 程序须为绝对路径")
+			return result, errors.New("hook program must be an absolute path")
 		}
 	}
 	manifestPath := filepath.Join(o.Dir, "client.json")
@@ -120,13 +120,13 @@ func ClientOperation(action string, o ClientOptions) (result ClientResult, err e
 	}
 	defer lock.Close()
 	if err = lockProcessFile(lock); err != nil {
-		return result, errors.New("另一个客户端安装/卸载正在进行")
+		return result, errors.New("another client install/uninstall is in progress")
 	}
 	// Keep the lock inode stable across operations; unlinking a held lock enables races.
 	m := clientManifest{Format: 1, NodeID: ID(), Resources: map[string]string{}}
 	if b, e := os.ReadFile(manifestPath); e == nil {
 		if json.Unmarshal(b, &m) != nil || m.Format != 1 || len(m.NodeID) != 32 {
-			return result, errors.New("客户端安装记录无效，未修改 Hook")
+			return result, errors.New("client install record is invalid; hooks left unchanged")
 		}
 	} else if !os.IsNotExist(e) {
 		return result, e
@@ -139,12 +139,12 @@ func ClientOperation(action string, o ClientOptions) (result ClientResult, err e
 			return result, err
 		}
 		if strings.TrimSpace(o.Token) == "" || strings.ContainsAny(o.Token, "\r\n") {
-			return result, errors.New("设备凭据为空或格式无效")
+			return result, errors.New("device credential is empty or malformed")
 		}
 		if o.Agent == "grok" && !o.Switch {
 			for _, v := range m.Entries {
 				if v.Agent == o.Agent && (v.Scope != o.Scope || v.Project != o.Project) {
-					return result, errors.New("Grok 不支持多个安装范围，请使用 --switch 切换")
+					return result, errors.New("Grok does not support multiple install scopes; use --switch to change")
 				}
 			}
 		}
@@ -176,7 +176,7 @@ func ClientOperation(action string, o ClientOptions) (result ClientResult, err e
 		if b, e := os.ReadFile(filepath.Join(o.Dir, "adapter", "connection.json")); e == nil && len(m.Entries) > 0 {
 			var old struct{ Endpoint, Token string }
 			if json.Unmarshal(b, &old) != nil || old.Endpoint != o.Endpoint || old.Token != o.Token {
-				return result, errors.New("该客户端已连接其他地址或凭据；请先卸载其 Hook，再重新安装")
+				return result, errors.New("this client is already connected to another address or credential; uninstall its hooks first, then reinstall")
 			}
 		}
 	}
@@ -211,7 +211,7 @@ func ClientOperation(action string, o ClientOptions) (result ClientResult, err e
 		for _, name := range []string{"index.ts", "opencode.mjs"} {
 			b, ok := o.Resources[name]
 			if !ok {
-				return result, fmt.Errorf("缺少适配器资源 %s", name)
+				return result, fmt.Errorf("missing adapter resource %s", name)
 			}
 			resourceData[name] = b
 		}
@@ -224,14 +224,14 @@ func ClientOperation(action string, o ClientOptions) (result ClientResult, err e
 				return result, e
 			}
 			if edit.existed && len(m.Entries) == 0 {
-				return result, errors.New("客户端目录已有未登记的适配器文件，未覆盖")
+				return result, errors.New("the client directory has an unregistered adapter file; not overwritten")
 			}
 			if edit.existed && m.Resources[name] != digestBytes(edit.before) {
-				return result, fmt.Errorf("适配器文件 %s 已被修改，未覆盖", name)
+				return result, fmt.Errorf("adapter file %s was modified; not overwritten", name)
 			}
 			// Resource changes affect loaded agents; leave existing installations on their current runtime.
 			if edit.existed && !bytes.Equal(edit.before, b) {
-				return result, errors.New("已有适配器版本或程序路径不同；请先卸载全部客户端 Hook")
+				return result, errors.New("the existing adapter version or program path differs; uninstall all client hooks first")
 			}
 			edits = append([]clientEdit{edit}, edits...)
 			m.Resources[name] = digestBytes(b)
@@ -254,7 +254,7 @@ func ClientOperation(action string, o ClientOptions) (result ClientResult, err e
 		if err = applyClientEdit(edit, false); err != nil {
 			for j := len(applied) - 1; j >= 0; j-- {
 				if e := applyClientEdit(applied[j], true); e != nil {
-					err = fmt.Errorf("%w；回滚 %s 失败：%v", err, applied[j].path, e)
+					err = fmt.Errorf("%w; rolling back %s failed: %v", err, applied[j].path, e)
 				}
 			}
 			removeEmptyDirs(createdDirs)
@@ -310,7 +310,7 @@ func clientTarget(o ClientOptions) (clientEntry, error) {
 		base = filepath.Join(o.Project, "."+o.Agent)
 	}
 	if !filepath.IsAbs(base) {
-		return clientEntry{}, errors.New("Agent 配置目录须为绝对路径")
+		return clientEntry{}, errors.New("agent config directory must be an absolute path")
 	}
 	entry := filepath.Join(base, "hooks.json")
 	switch o.Agent {
@@ -339,12 +339,12 @@ func clientHookEdit(v clientEntry, install bool) (clientEdit, error) {
 		link, e := os.Readlink(v.Entry)
 		if e == nil {
 			if link != v.ManagedContent {
-				return edit, errors.New("Pi 入口不是本客户端安装的符号链接")
+				return edit, errors.New("the Pi entry is not a symlink installed by this client")
 			}
 			edit.existed = true
 			edit.oldLink = link
 		} else if _, e = os.Lstat(v.Entry); !os.IsNotExist(e) {
-			return edit, errors.New("Pi 同名入口已存在且不属于本客户端")
+			return edit, errors.New("a Pi entry with the same name exists and does not belong to this client")
 		}
 		if install {
 			edit.newLink = v.ManagedContent
@@ -358,7 +358,7 @@ func clientHookEdit(v clientEntry, install bool) (clientEdit, error) {
 		}
 		edit, e := clientRegularEdit(v.Entry, b)
 		if e == nil && edit.existed && string(edit.before) != v.ManagedContent {
-			e = errors.New("OpenCode 插件已被修改或不属于本客户端")
+			e = errors.New("the OpenCode plugin was modified or does not belong to this client")
 		}
 		return edit, e
 	}
@@ -384,7 +384,7 @@ func clientRegularEdit(p string, b []byte) (clientEdit, error) {
 		return edit, e
 	}
 	if !st.Mode().IsRegular() {
-		return edit, fmt.Errorf("%s 不是普通文件，未覆盖", p)
+		return edit, fmt.Errorf("%s is not a regular file; not overwritten", p)
 	}
 	edit.existed = true
 	edit.mode = st.Mode().Perm()
@@ -399,21 +399,21 @@ func applyClientEdit(e clientEdit, undo bool) error {
 	st, statErr := os.Lstat(e.path)
 	if !exists {
 		if !os.IsNotExist(statErr) {
-			return fmt.Errorf("%s 在操作期间发生变化，未覆盖", e.path)
+			return fmt.Errorf("%s changed during the operation; not overwritten", e.path)
 		}
 	} else {
 		if statErr != nil {
-			return fmt.Errorf("%s 在操作期间消失，未覆盖", e.path)
+			return fmt.Errorf("%s disappeared during the operation; not overwritten", e.path)
 		}
 		if expectedLink != "" {
 			link, err := os.Readlink(e.path)
 			if err != nil || link != expectedLink {
-				return fmt.Errorf("%s 链接发生变化，未覆盖", e.path)
+				return fmt.Errorf("%s link changed; not overwritten", e.path)
 			}
 		} else {
 			b, err := os.ReadFile(e.path)
 			if !st.Mode().IsRegular() || err != nil || !bytes.Equal(b, expected) {
-				return fmt.Errorf("%s 内容发生变化，未覆盖", e.path)
+				return fmt.Errorf("%s content changed; not overwritten", e.path)
 			}
 		}
 	}

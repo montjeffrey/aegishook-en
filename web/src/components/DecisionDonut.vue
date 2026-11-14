@@ -7,9 +7,9 @@ const selected = ref(""),
 const active = computed(() => hovered.value || selected.value);
 const rows = computed(() =>
   [
-    { key: "approve", label: "已允许", color: "#20b486" },
-    { key: "reject", label: "已拦截", color: "#f05265" },
-    { key: "pending", label: "待审查", color: "#e6a236" },
+    { key: "approve", label: "Approved", color: "#20b486" },
+    { key: "reject", label: "Blocked", color: "#f05265" },
+    { key: "pending", label: "Pending review", color: "#e6a236" },
   ].map((r) => ({
     ...r,
     count: props.calls.filter((c) => c.decision === r.key).length,
@@ -28,7 +28,7 @@ const offset = (i: number) =>
 <template>
   <div class="decision-donut">
     <div class="donut-graphic">
-      <svg viewBox="0 0 180 180" role="group" aria-label="工具裁决环形图">
+      <svg viewBox="0 0 180 180" role="group" aria-label="Tool decision donut chart">
         <circle
           cx="90"
           cy="90"
@@ -51,7 +51,7 @@ const offset = (i: number) =>
             transform="rotate(-90 90 90)"
             role="button"
             tabindex="0"
-            :aria-label="`${r.label} ${r.count} 次，占比 ${percent(r.count)}`"
+            :aria-label="`${r.label}: ${r.count} calls, ${percent(r.count)}`"
             :aria-pressed="selected === r.key"
             @mouseenter="hovered = r.key"
             @mouseleave="hovered = ''"
@@ -65,8 +65,8 @@ const offset = (i: number) =>
       </svg>
       <div class="donut-center" aria-live="polite">
         <strong>{{ current ? current.count : total }}</strong
-        ><span>{{ current ? current.label : "工具调用" }}</span
-        ><small>{{ current ? percent(current.count) : "当前裁决" }}</small>
+        ><span>{{ current ? current.label : "Tool calls" }}</span
+        ><small>{{ current ? percent(current.count) : "Current decision" }}</small>
       </div>
     </div>
     <div class="donut-legend">
@@ -87,8 +87,8 @@ const offset = (i: number) =>
     <p class="muted tiny">
       {{
         total
-          ? "悬浮或点击分类查看；允许不代表执行成功。"
-          : "所选时间范围内暂无工具调用。"
+          ? "Hover or click a category to view it; approved does not mean the call succeeded."
+          : "No tool calls in the selected time range."
       }}
     </p>
   </div>

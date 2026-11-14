@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const previousVerdict = "实际操作：遍历工单；成功后的后果：读取业务数据；命中规则：R7"
+const previousVerdict = "Actual operation: iterate over tickets; Consequence if successful: reads business data; Matched rule: R7"
 
 func assertCurrentModelInput(t *testing.T, body []byte, tool string, args map[string]any) {
 	t.Helper()
@@ -48,7 +48,7 @@ func TestModelInputCurrentOnly(t *testing.T) {
 }
 
 func TestModelPromptCurrentOnly(t *testing.T) {
-	for _, policy := range []string{DefaultPrompt, "保留自定义规则；此前根据历史累计判断。", DataGuardPrompt} {
+	for _, policy := range []string{DefaultPrompt, "Keep the custom rule; earlier decisions were based on cumulative history.", DataGuardPrompt} {
 		got := modelPrompt(policy)
 		if got != policy+"\n\n"+reviewInputBoundary || modelPrompt(got) != got {
 			t.Fatal("lost custom policy or duplicated current-call boundary")
@@ -103,7 +103,7 @@ func TestCurrentCallIsolatedFromHistory(t *testing.T) {
 						return nil, fmt.Errorf("unexpected model messages on attempt %d", attempt)
 					}
 					assertCurrentModelInput(t, []byte(messages[0].Content), "bash", args)
-					verdict := `{"decision":"approve","comment":"实际操作：输出当前目录及 hello；成功后的后果：返回本机文本；命中规则：A6"}`
+					verdict := `{"decision":"approve","comment":"Actual operation: print the current directory and hello; Consequence if successful: returns local text; Matched rule: A6"}`
 					if attempt == 1 {
 						verdict = "invalid JSON"
 					}

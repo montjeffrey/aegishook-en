@@ -51,7 +51,7 @@ func (s *Server) clientRequestRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/client/requests/{id}", func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		if !strings.HasPrefix(auth, "Bearer ") {
-			fail(w, 401, errors.New("缺少申请凭据"))
+			fail(w, 401, errors.New("missing request credential"))
 			return
 		}
 		result, err := s.Engine.PollClientRequest(r.PathValue("id"), strings.TrimPrefix(auth, "Bearer "), s.clientIP(r))

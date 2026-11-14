@@ -61,7 +61,7 @@ func TestIncompleteScriptOverridesDeterministicAllow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Decision != "pending" || r.ReviewPath != "human" || !r.NeedsHuman || !strings.Contains(r.Comment, "脚本未能完整采集") {
+	if r.Decision != "pending" || r.ReviewPath != "human" || !r.NeedsHuman || !strings.Contains(r.Comment, "The script could not be captured in full") {
 		t.Fatalf("incomplete script was auto-allowed: %+v", r)
 	}
 }

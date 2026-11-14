@@ -1,103 +1,103 @@
-# 规则目录与管理
+# Rule catalog and management
 
-规则页列出 26 条内置规则。每一条都可以启用、停用、修改名称、优先级、裁决和匹配方式；自定义规则还可以删除。滑动开关保存成功后影响后续调用，已有审查记录保留当时的规则快照。
+The rules page lists 26 built-in rules. Each one can be enabled, disabled, and edited for name, priority, decision and match method; custom rules can also be deleted. After a switch is saved successfully it affects later calls, and existing review records keep the rule snapshot from that time.
 
-可按名称、编号、命令、表达式和检测说明搜索，也可筛选已启用或已停用。语义识别条目显示命中样例，并可展开检查内容、适用范围和限制；这里的“语义识别”指后端的确定性代码检查，不会调用模型。正则和文本条目显示完整表达式，支持展开复制。规则试判只分析参数，不执行命令。
+You can search by name, ID, command, expression and detection description, and filter by enabled or disabled. Semantic-matching entries show match samples and can be expanded to inspect the checks, the scope and the limits; here "semantic matching" means a deterministic code check in the backend and never calls a model. Regex and text entries show the full expression and can be expanded and copied. **Rule dry run** only analyzes arguments and does not execute commands.
 
-## 内置条目
+## Built-in entries
 
-| 类别 | 规则 | 默认状态 / 优先级 |
+| Category | Rule | Default state / priority |
 |---|---|---|
-| 系统 | R_SYS_RM：递归删除 rm -r / rm -rf | 启用 / 100 |
-| 系统 | R_SYS_PATH：删除系统关键目录 | 启用 / 100 |
-| 系统 | R_SYS_FORMAT：mkfs、diskutil、Format-Volume / Clear-Disk | 启用 / 100 |
-| 系统 | R_SYS_DD：dd / 输出重定向覆写磁盘设备 | 启用 / 100 |
-| 系统 | R_SYS_FORK：递归后台管道 Fork 炸弹 | 启用 / 100 |
-| 系统 | R_SYS_SHUTDOWN：关机 / 重启 / init 0 或 6 | 启用 / 100 |
-| 系统 | R_SYS_KILL：批量终止进程 | 启用 / 100 |
-| 系统 | R_SYS_WIPE：shred / wipe / wipefs 擦除磁盘 | 启用 / 100 |
-| 系统 | R_SYS_FIREWALL：清空防火墙 | 启用 / 100 |
-| 数据库 | R_DB_DROP：DROP DATABASE / TABLE / SCHEMA / INDEX / VIEW / TABLESPACE / USER / ROLE | 启用 / 90 |
-| 数据库 | R_DB_TRUNCATE：TRUNCATE | 启用 / 90 |
-| 数据库 | R_DB_DELETE：没有 WHERE 的 DELETE FROM | 启用 / 90 |
-| 数据库 | R_DB_MONGO：MongoDB drop / dropDatabase / dropCollection | 启用 / 90 |
-| 数据库 | R_DB_REDIS：Redis FLUSHALL / FLUSHDB | 启用 / 90 |
-| HTTP | R_HTTP_DELETE：curl / wget / PowerShell / 请求工具的 DELETE | 启用 / 80 |
-| HTTP | R_HTTP_PYTHON：Python HTTP 客户端 .delete() | 启用 / 80 |
-| HTTP | R_HTTP_SCRIPT：axios.delete / 请求中的 DELETE 方法声明 | 启用 / 80 |
-| HTTP | R_HTTP_CLEAR：向清空、重置或销毁路径发送写请求 | 启用 / 80 |
-| 网络 | R_NET_PIPE：网络客户端之间的数据管道 | **停用** / 80 |
-| 基础 | R1–R6：密码与登录、配置、账号权限、关键数据、服务可用性、显式洪泛 | 启用 / 0 |
-| 读取 | A7：读取与查询工具 | 启用 / 0 |
+| System | R_SYS_RM: Recursive delete rm -r / rm -rf | Enabled / 100 |
+| System | R_SYS_PATH: Delete critical system directories | Enabled / 100 |
+| System | R_SYS_FORMAT: Disk format mkfs / Format-Volume (also diskutil, Clear-Disk) | Enabled / 100 |
+| System | R_SYS_DD: Overwrite a disk device with dd / redirection | Enabled / 100 |
+| System | R_SYS_FORK: Fork bomb (recursive background pipe) | Enabled / 100 |
+| System | R_SYS_SHUTDOWN: Shutdown / reboot (also init 0 or 6) | Enabled / 100 |
+| System | R_SYS_KILL: Mass process termination | Enabled / 100 |
+| System | R_SYS_WIPE: Disk wipe shred / wipe (also wipefs) | Enabled / 100 |
+| System | R_SYS_FIREWALL: Flush firewall rules | Enabled / 100 |
+| Database | R_DB_DROP: SQL DROP database / table / schema (DROP DATABASE / TABLE / SCHEMA / INDEX / VIEW / TABLESPACE / USER / ROLE) | Enabled / 90 |
+| Database | R_DB_TRUNCATE: SQL TRUNCATE table | Enabled / 90 |
+| Database | R_DB_DELETE: SQL unconditional DELETE (DELETE FROM without WHERE) | Enabled / 90 |
+| Database | R_DB_MONGO: MongoDB drop / dropDatabase (also dropCollection) | Enabled / 90 |
+| Database | R_DB_REDIS: Redis FLUSHALL / FLUSHDB | Enabled / 90 |
+| HTTP | R_HTTP_DELETE: HTTP DELETE · curl / wget / request tools (also PowerShell) | Enabled / 80 |
+| HTTP | R_HTTP_PYTHON: Python HTTP client DELETE (.delete()) | Enabled / 80 |
+| HTTP | R_HTTP_SCRIPT: JavaScript / generic HTTP DELETE method (axios.delete / DELETE method declaration in a request) | Enabled / 80 |
+| HTTP | R_HTTP_CLEAR: Bulk clear / destroy endpoints (write requests to clear, reset or destroy paths) | Enabled / 80 |
+| Network | R_NET_PIPE: Data exfiltration pipe (optional) (data pipe between network clients) | **Disabled** / 80 |
+| Baseline | R1-R6: password and login, configuration, account permissions, critical data, service availability, explicit flooding | Enabled / 0 |
+| Read | A7: Read and query tools | Enabled / 0 |
 
-拒绝优先于允许；同一裁决内，优先级越高越先匹配。基础大类与具体条目是独立规则，可能重叠。关闭一条不会关闭其它规则；需要调整一类行为时，可先搜索相关命令并检查全部启用条目。未命中确定性规则时，仍进入当前人工或模型审查模式。
+Reject takes priority over allow; within the same decision, a higher priority matches first. The baseline categories and the specific entries are independent rules and may overlap. Turning one off does not turn off the others; to adjust a class of behavior, first search for the related command and check all enabled entries. A call that matches no deterministic rule still goes to the current human or model review mode.
 
-## 规则与审批的先后顺序
+## Order of rules and approval
 
-所有已接入并实际触发 Hook 的工具调用共用服务端 `Engine.Submit`：
+Every tool call that is connected and actually triggers a Hook shares the server-side `Engine.Submit`:
 
 ```text
-校验会话、调用 ID 与原始参数摘要
-  → 项目授权范围检查：越界直接拒绝
-  → 已启用规则：拒绝优先，同裁决按优先级降序、编号升序
-      → 命中拒绝：记录规则裁决，直接拦截
-      → 命中允许：记录规则裁决，直接返回执行许可
-      → 未命中：进入本次调用保存的审查模式
-          → 人工：等待允许／拒绝，超时拒绝
-          → 模型：发起审查请求，异常或超时拒绝，不转人工
+Validate session, call ID and original argument digest
+  -> Project authorization scope check: out of scope is rejected directly
+  -> Enabled rules: reject first; within the same decision, priority descending, ID ascending
+      -> Reject matched: record the rule decision and block directly
+      -> Allow matched: record the rule decision and return the execution permit directly
+      -> No match: go to the review mode saved with this call
+          -> Human: wait for allow / reject; reject on timeout
+          -> Model: send a review request; reject on error or timeout; no handoff to a human
 ```
 
-规则使用脱敏前的实际工具名与参数；入库、模型输入和返回说明仍按原有流程脱敏。规则命中不会进入人工待办，也不会调用模型或产生模型用量。未知脚本、未识别的工具或不满足确定性条件的调用继续进入所选审批模式，不因未命中而直接放行。收到执行许可不等于工具已经执行。
+Rules use the actual tool name and arguments before redaction; storage, model input and the returned message are still redacted by the existing flow. A rule match does not enter the human queue, does not call a model and produces no model usage. Unknown scripts, unrecognized tools or calls that do not satisfy the deterministic conditions continue into the selected approval mode, and a non-match is never approved directly. Receiving an execution permit does not mean the tool has been executed.
 
-此顺序此前已在提交入口实现。本次将规则命中分支明确为提前返回，并保存 `reviewPath`（`scope` / `rule` / `human` / `model`）。调用记录显示实际路径；`mode` 继续表示当时配置的未命中处理模式，不代表实际调用过模型或人工。历史记录从当时的规则快照、模型裁决和人工标识推断路径，不用当前规则覆盖历史。模型回复中的 R1、A7 等编号属于模型裁决说明，不能仅凭编号断定命中确定性规则。
+This order was already implemented at the submission entry. This change makes the rule-match branch an explicit early return and saves `reviewPath` (`scope` / `rule` / `human` / `model`). The call record shows the actual path; `mode` still means the configured handling for a non-match at that time, and does not mean a model or a human was actually involved. For historical records, the path is inferred from the rule snapshot, the model decision and the human marker of that time, and current rules are not used to overwrite history. IDs such as R1 and A7 in a model reply belong to the model's decision explanation, and an ID alone cannot establish that a deterministic rule matched.
 
-进入模型审查后，模型输入仅包含本次工具名、工具参数和 `hitlMode`，不携带历史命令、结果或用户会话。一个调用中的多个操作仍整体检查；跨调用的历史验证状态及累计取数不再用于裁决。该输入边界适用于所有 Agent 和两种模型协议，不改变上述规则优先的顺序。
+After a call enters model review, the model input contains only this call's tool name, tool arguments and `hitlMode`, and carries no historical commands, results or user session. Multiple operations in one call are still checked as a whole; the historical verification state across calls and cumulative retrieval are no longer used for decisions. This input boundary applies to all Agents and both model protocols, and does not change the rule-first order above.
 
-### ARTEX 审批代码核对
+### Check against ARTEX approval code
 
-本次审批流程对照本机 ARTEX 提交 `a3bb2c79592c4d79a41479da1f5d52657bfad708`，与下文首次规则目录对照的提交分别记录：
+This approval flow was checked against the local ARTEX commit `a3bb2c79592c4d79a41479da1f5d52657bfad708`, recorded separately from the commit used for the first rule catalog comparison below:
 
-- `guard/guard.go` 的 `applyIntercept`：先检查工具是否启用拦截，再调用 `Match`；只有未匹配才调用 `Judge`。`allow` / `deny` 立即返回，`ask` 经 `HandleAsk` 等待人工。
-- `db/intercept.go` 的 `ListInterceptRules` 与 `intercept/intercept.go` 的 `loadLocked`、`Match`、`ruleMatches`：启用规则按 `priority DESC, id` 排序，首条匹配即决定结果；匹配对象为工具名或完整输入 JSON，使用 Go 正则或区分大小写的包含文本。正则无效的已有记录会被跳过，编辑接口会校验新正则。
-- `intercept/intercept.go` 的 `Judge`：模型未启用或未接线时返回未判断，上层直接放行；模型失败行为可配置，代码默认 `allow`；模型可返回 `ask` 再转人工。AegisHook 保持未命中进入所选模式、模型异常拒绝的既有行为，没有引入这些自动放行或转人工选项。
+- `applyIntercept` in `guard/guard.go`: first checks whether interception is enabled for the tool, then calls `Match`; only when nothing matches does it call `Judge`. `allow` / `deny` return immediately, and `ask` waits for a human through `HandleAsk`.
+- `ListInterceptRules` in `db/intercept.go`, and `loadLocked`, `Match` and `ruleMatches` in `intercept/intercept.go`: enabled rules are sorted by `priority DESC, id`, and the first match decides the result; the match target is the tool name or the full input JSON, using a Go regex or case-sensitive contains-text. Existing records with an invalid regex are skipped, and the edit endpoint validates new regexes.
+- `Judge` in `intercept/intercept.go`: when the model is not enabled or not wired up it returns "not judged" and the upper layer approves directly; the model failure behavior is configurable and the code default is `allow`; the model can return `ask` and then hand off to a human. AegisHook keeps its existing behavior of sending a non-match to the selected mode and rejecting on model errors, and does not introduce these automatic-allow or human-handoff options.
 
-ARTEX 的固定工具名单为 `Bash`、`WebFetch`、`web_search`、`shell_open`、`shell_send`、`Write`、`Edit`、`MultiEdit`，名单外直接跳过拦截。AegisHook 对所有收到的工具事件先查规则，因此不照搬这个名单，也不改成 ARTEX 的“高优先级允许可先于拒绝”排序。
+ARTEX's fixed tool list is `Bash`, `WebFetch`, `web_search`, `shell_open`, `shell_send`, `Write`, `Edit`, `MultiEdit`, and anything outside the list skips interception. AegisHook checks rules first for every tool event it receives, so it does not copy this list, and it does not switch to ARTEX's ordering in which a high-priority allow can come before a reject.
 
-### 各 Agent 的适用方式
+### How it applies to each Agent
 
-| 接入端 | 执行前入口 | 传入匹配器的内容 |
+| Integration | Pre-execution entry | Content passed to the matcher |
 |---|---|---|
-| Pi | `adapter/index.ts` 的 `tool_call` | `event.toolName` 与 `event.input` 原样提交，例如 `bash.command`、`read.path` |
-| Claude Code / Codex / Grok Build | `internal/bridge/bridge.go` 的 `PreToolUse` | `tool_name` / `toolName` 与 `tool_input` / `toolInput`，例如 `Bash.command`、`Read.file_path` |
-| OpenCode | `adapter/opencode.mjs` 的 `tool.execute.before`，经同一 bridge | `input.tool` 与 `output.args`，例如 `bash.command`、`edit.filePath` |
+| Pi | `tool_call` in `adapter/index.ts` | `event.toolName` and `event.input` submitted as-is, for example `bash.command`, `read.path` |
+| Claude Code / Codex / Grok Build | `PreToolUse` in `internal/bridge/bridge.go` | `tool_name` / `toolName` and `tool_input` / `toolInput`, for example `Bash.command`, `Read.file_path` |
+| OpenCode | `tool.execute.before` in `adapter/opencode.mjs`, through the same bridge | `input.tool` and `output.args`, for example `bash.command`, `edit.filePath` |
 
-适配器都等待 `/api/v1/reviews` 的最终允许／拒绝，规则和审批的前后关系可以复用。表中是当前适配器及已有验证所覆盖的参数形式，不保证所有客户端版本提供相同事件；客户端未上报的工具、外部脚本内部调用和 Codex 后续 `write_stdin` 输入不能靠本次服务端流程增加覆盖。
+All adapters wait for the final allow / reject from `/api/v1/reviews`, so the relationship between rules and approval can be reused. The table lists the argument shapes covered by the current adapters and existing verification; it does not guarantee that every client version provides the same events, and tools the client does not report, calls made inside external scripts, and later Codex `write_stdin` input cannot gain coverage from this server-side flow.
 
-内置语义匹配器对已支持的工具别名与字段进行检查，例如读取工具大小写、`command` / `cmd`、`path` / `file_path` / `filePath`。自定义规则的“限定工具”仍精确区分大小写：`Bash` 不等于 `bash`。需要跨 Agent 的工具名正则可以使用 `(?i)^bash$`；参数路径必须对应实际字段，留空则对 JSON 编码后的整个参数对象匹配，字符串中的引号、换行等会转义。规则试判应复制调用记录中的实际工具名和参数格式；脱敏过的字段不能用于复现依赖原始密钥值的规则。
+Built-in semantic matchers check the supported tool aliases and fields, for example read-tool case variants, `command` / `cmd`, and `path` / `file_path` / `filePath`. The **Tool name** restriction of a custom rule is still case-sensitive: `Bash` is not equal to `bash`. For a cross-Agent tool name regex you can use `(?i)^bash$`; the argument path must correspond to a real field, and leaving it empty matches against the whole JSON-encoded argument object, in which quotes, newlines and similar characters in strings are escaped. For a rule dry run, copy the actual tool name and argument format from the call record; redacted fields cannot be used to reproduce a rule that depends on the original secret value.
 
-例如 `Read` 读取普通文件可命中 A7，但 `Bash` 中的 `cat`、`pwd` 并不是读取工具本身；没有额外允许规则命中时，仍会转人工或模型。这是匹配条件的区别，不是跳过了规则阶段。
+For example, `Read` reading an ordinary file can match A7, but `cat` or `pwd` inside `Bash` is not the read tool itself; if no other allow rule matches, the call still goes to a human or the model. That is a difference in match conditions, not a skipped rule stage.
 
-ARTEX 的全 JSON 正则可以匹配写入源码、说明文本中的命令字样；AegisHook 的内置命令规则分析执行上下文，以减少这类误报。无法静态识别的动态行为交给审批；本次没有把普通文本匹配改造成脚本解释器。
+ARTEX's full-JSON regex can match command-like text that is written into source code or explanatory text; AegisHook's built-in command rules analyze the execution context to reduce such false positives. Dynamic behavior that cannot be recognized statically is left to approval; this change did not turn plain text matching into a script interpreter.
 
-`TestRuleFirstAcrossAgentsAndModes` 使用五种 Agent 身份与两种模式，验证规则直允／直拒、工具名正则、完整 JSON 与字段匹配、脱敏顺序、规则停用、范围优先、重复调用和模型用量；模型响应在内存中模拟，不执行危险命令、不使用真实模型或监听端口。`TestLegacyReviewPathUsesSavedEvidence` 验证历史记录不会把模型 R1 误认成规则 R1。
+`TestRuleFirstAcrossAgentsAndModes` uses five Agent identities and two modes to verify direct rule allow/reject, tool name regex, full JSON and field matching, redaction order, rule disabling, scope precedence, repeated calls and model usage; model responses are simulated in memory, with no dangerous commands executed, no real model used and no port listened on. `TestLegacyReviewPathUsesSavedEvidence` verifies that a historical record does not mistake the model's R1 for rule R1.
 
-## 对照 ARTEX
+## Comparison with ARTEX
 
-本次逐项对照本机 ARTEX 提交 `8dae851b9b622f2ff2631f332fde9719d0b16fba`：
+This time the local ARTEX commit `8dae851b9b622f2ff2631f332fde9719d0b16fba` was compared item by item:
 
-- [`db/db.go`](https://github.com/Autumn-27/ARTEX/blob/8dae851b9b622f2ff2631f332fde9719d0b16fba/db/db.go)：v1 / v2 初始化中的 19 个规则条目及默认状态。
-- [`db/intercept.go`](https://github.com/Autumn-27/ARTEX/blob/8dae851b9b622f2ff2631f332fde9719d0b16fba/db/intercept.go)：规则字段、优先级排序、编辑和启停。
-- [`intercept/intercept.go`](https://github.com/Autumn-27/ARTEX/blob/8dae851b9b622f2ff2631f332fde9719d0b16fba/intercept/intercept.go)：工具名 / 输入匹配、启用过滤和首条命中行为。
-- `web/src/app/(main)/system/intercept/page.tsx`：规则表格、匹配内容和滑动开关。
+- [`db/db.go`](https://github.com/Autumn-27/ARTEX/blob/8dae851b9b622f2ff2631f332fde9719d0b16fba/db/db.go): the 19 rule entries in the v1 / v2 initialization and their default states.
+- [`db/intercept.go`](https://github.com/Autumn-27/ARTEX/blob/8dae851b9b622f2ff2631f332fde9719d0b16fba/db/intercept.go): rule fields, priority ordering, editing and enabling/disabling.
+- [`intercept/intercept.go`](https://github.com/Autumn-27/ARTEX/blob/8dae851b9b622f2ff2631f332fde9719d0b16fba/intercept/intercept.go): tool name / input matching, enabled filtering and first-match behavior.
+- `web/src/app/(main)/system/intercept/page.tsx`: the rules table, match content and sliding switches.
 
-AegisHook 参考其覆盖类别与交互，独立实现匹配器。ARTEX 的“破坏性系统命令”汇总条目由已有基础规则及具体系统条目覆盖，另补充无条件 SQL DELETE。网络管道也会用于正常传输，因此保持默认关闭。
+AegisHook follows its coverage categories and interaction, and implements the matchers independently. ARTEX's summary entry for "destructive system commands" is covered by the existing baseline rules and the specific system entries, with an unconditional SQL DELETE added. A network pipe is also used for normal transfers, so it stays disabled by default.
 
-新增 Shell 规则使用语法树区分命令、参数、管道和输出重定向；SQL / MongoDB / Python / JavaScript 检查限定在对应执行上下文。仅打印危险命令或写入普通源码示例，不等于执行该操作。AegisHook 继续采用拒绝优先规则，不改变模型异常时的拒绝处理。
+The new shell rules use a syntax tree to tell commands, arguments, pipes and output redirection apart; the SQL / MongoDB / Python / JavaScript checks are limited to the matching execution context. Merely printing a dangerous command or writing it as an ordinary source example is not the same as executing that operation. AegisHook keeps its reject-first rules and does not change the reject handling on model errors.
 
-检测是有限的静态检查，不是完整的脚本解释器：不展开变量、外部脚本或任意动态调用；Python session / client 依赖命名约定，HTTP 方法与调用按代码片段关联。每条规则的完整条件中列出具体限制。Windows 命令只覆盖当前可解析的字面量形式；当前测试在 macOS 上分析这些输入，未执行 Windows 系统命令。
+Detection is a limited static check, not a complete script interpreter: it does not expand variables, external scripts or arbitrary dynamic calls; Python session / client rely on naming conventions, and HTTP methods and calls are associated by code snippet. The full conditions of each rule list its specific limits. Windows commands are covered only in the literal forms that can currently be parsed; the current tests analyze these inputs on macOS and do not execute Windows system commands.
 
-## 旧版本升级
+## Upgrading from older versions
 
-启动时只补齐缺少的内置条目，不覆盖已有名称、优先级、匹配表达式、裁决或开关。新增条目、配置版本与升级审计在同一事务内写入，重复启动不会重置规则。
+At startup only missing built-in entries are added; existing names, priorities, match expressions, decisions and switches are not overwritten. New entries, the config version and the upgrade audit are written in the same transaction, and starting repeatedly does not reset rules.
 
-如果关联的旧基础大类已被停用、改为允许、替换匹配方式或限定工具，新条目首次加入时保持关闭。名称、说明和优先级的修改不影响默认启用。之后每条开关独立生效，不会随基础大类联动。自定义规则和历史审查快照保留。
+If the related old baseline category has been disabled, changed to allow, given a different match method or restricted to certain tools, the new entry stays off when it is first added. Changes to name, description and priority do not affect the default enabled state. After that, each switch works independently and no longer follows the baseline category. Custom rules and historical review snapshots are kept.

@@ -133,7 +133,7 @@ const tooltipLeft = computed(() =>
       @keydown="navigate"
       :aria-label="
         title +
-        '，左右方向键切换日期，Home / End 跳到首尾；详细数值见下方数据表'
+        '. Use the left and right arrow keys to change date and Home / End to jump to the first or last; see the data table below for details'
       "
     >
       <g v-for="v in [0, 0.5, 1]" :key="v">
@@ -216,7 +216,7 @@ const tooltipLeft = computed(() =>
         ><b
           >{{
             activePoint[s.key] === null
-              ? "未知"
+              ? "Unknown"
               : (activePoint[s.key] as number).toLocaleString("zh-CN", {
                   maximumFractionDigits: 6,
                 })
@@ -226,12 +226,12 @@ const tooltipLeft = computed(() =>
       </div>
     </div>
     <details class="chart-data">
-      <summary>查看每日数据</summary>
+      <summary>View daily data</summary>
       <div class="chart-table">
         <table>
           <thead>
             <tr>
-              <th>日期</th>
+              <th>Date</th>
               <th v-for="s in series" :key="s.key">{{ s.label }}</th>
             </tr>
           </thead>
@@ -241,7 +241,7 @@ const tooltipLeft = computed(() =>
               <td v-for="s in series" :key="s.key">
                 {{
                   p[s.key] === null
-                    ? "未计价 / 用量未知"
+                    ? "Not priced / usage unknown"
                     : typeof p[s.key] === "number"
                       ? (p[s.key] as number).toLocaleString("zh-CN", {
                           maximumFractionDigits: 6,

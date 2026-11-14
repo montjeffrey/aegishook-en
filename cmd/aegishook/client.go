@@ -15,25 +15,25 @@ import (
 
 func runClient(args []string, input io.Reader, output io.Writer) error {
 	if len(args) == 0 || (args[0] != "install" && args[0] != "uninstall") {
-		return errors.New("用法：aegishook client install|uninstall --agent AGENT --scope global|project [选项]")
+		return errors.New("usage: aegishook client install|uninstall --agent AGENT --scope global|project [options]")
 	}
 	action := args[0]
 	f := flag.NewFlagSet("client "+action, flag.ContinueOnError)
 	f.SetOutput(output)
 	home, _ := os.UserHomeDir()
 	o := core.ClientOptions{Progress: os.Stderr}
-	f.StringVar(&o.Dir, "client-dir", filepath.Join(home, ".aegishook-client"), "Hook 客户端私有目录（不是服务端数据目录）")
-	f.StringVar(&o.Agent, "agent", "claude", "pi、claude、codex、opencode 或 grok")
-	f.StringVar(&o.Scope, "scope", "global", "global 或 project")
-	f.StringVar(&o.Project, "project", "", "项目绝对路径")
-	f.StringVar(&o.PiDir, "agent-dir", core.AgentDir(), "Pi 用户目录")
+	f.StringVar(&o.Dir, "client-dir", filepath.Join(home, ".aegishook-client"), "private hook client directory (not the server data directory)")
+	f.StringVar(&o.Agent, "agent", "claude", "pi, claude, codex, opencode or grok")
+	f.StringVar(&o.Scope, "scope", "global", "global or project")
+	f.StringVar(&o.Project, "project", "", "absolute project path")
+	f.StringVar(&o.PiDir, "agent-dir", core.AgentDir(), "Pi user directory")
 	codeFile := ""
 	codeStdin := false
 	if action == "install" {
-		f.StringVar(&o.Endpoint, "endpoint", "", "风控服务源站地址：HTTPS，或回环 HTTP")
-		f.StringVar(&codeFile, "code-file", "", "一次性设备接入码文件")
-		f.BoolVar(&codeStdin, "code-stdin", false, "从标准输入读取一次性接入码")
-		f.BoolVar(&o.Switch, "switch", false, "安装成功时移除同一 Agent 的另一类范围（global/project）")
+		f.StringVar(&o.Endpoint, "endpoint", "", "review service origin: HTTPS, or HTTP on loopback")
+		f.StringVar(&codeFile, "code-file", "", "one-time device enrollment code file")
+		f.BoolVar(&codeStdin, "code-stdin", false, "read the one-time enrollment code from stdin")
+		f.BoolVar(&o.Switch, "switch", false, "on successful install, remove the same agent's other scope (global/project)")
 	}
 	if e := f.Parse(args[1:]); e != nil {
 		if errors.Is(e, flag.ErrHelp) {
@@ -42,17 +42,17 @@ func runClient(args []string, input io.Reader, output io.Writer) error {
 		return e
 	}
 	if f.NArg() != 0 {
-		return errors.New("不支持的位置参数")
+		return errors.New("unsupported positional arguments")
 	}
 	if action == "install" {
 		if codeFile != "" && codeStdin {
-			return errors.New("--code-file 与 --code-stdin 不能同时提供")
+			return errors.New("--code-file and --code-stdin cannot be used together")
 		}
 		source := input
 		if codeFile != "" {
 			file, e := os.Open(codeFile)
 			if e != nil {
-				return errors.New("无法读取一次性接入码文件")
+				return errors.New("cannot read the one-time enrollment code file")
 			}
 			defer file.Close()
 			source = file
@@ -63,7 +63,7 @@ func runClient(args []string, input io.Reader, output io.Writer) error {
 			b, e = io.ReadAll(io.LimitReader(source, 8193))
 		}
 		if e != nil || len(b) > 8192 {
-			return errors.New("无法读取一次性接入码或接入码过长")
+			return errors.New("cannot read the one-time enrollment code, or it is too long")
 		}
 		o.EnrollmentCode = strings.TrimSpace(string(b))
 		o.Binary, e = os.Executable()
@@ -86,6 +86,6 @@ func runClient(args []string, input io.Reader, output io.Writer) error {
 	if e = json.NewEncoder(output).Encode(result); e != nil {
 		return e
 	}
-	fmt.Fprintln(output, "请重载或重启 Agent；安装不改变客户端的 Hook 信任设置。")
+	fmt.Fprintln(output, "Reload or restart the agent; installation does not change the client's hook trust settings.")
 	return nil
 }

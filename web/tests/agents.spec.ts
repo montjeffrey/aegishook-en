@@ -44,10 +44,10 @@ test("multi-agent project installation, actual event states and responsive theme
   });
   await page.goto(base + "/agents");
   await expect(page).toHaveTitle(/AegisHook/);
-  await page.getByLabel("管理令牌", { exact: true }).fill("fixture-admin");
-  await page.getByRole("button", { name: "进入控制台" }).click();
+  await page.getByLabel("Admin token", { exact: true }).fill("fixture-admin");
+  await page.getByRole("button", { name: "Open console" }).click();
   await expect(
-    page.getByRole("heading", { name: "Agent 接入", exact: true }),
+    page.getByRole("heading", { name: "Agent integration", exact: true }),
   ).toBeVisible();
   const output =
     process.env.AEGIS_SCREENSHOTS || join(tmpdir(), "aegis-agents-ui");
@@ -59,7 +59,7 @@ test("multi-agent project installation, actual event states and responsive theme
     ["grok", "Grok Build"],
   ]) {
     const select = page.getByRole("combobox", {
-      name: "选择 Agent",
+      name: "Select Agent",
       exact: true,
     });
     await select.click();
@@ -68,18 +68,18 @@ test("multi-agent project installation, actual event states and responsive theme
       page.getByRole("heading", { name, exact: true }),
     ).toBeVisible();
     await page
-      .getByRole("button", { name: "安装 Hook", exact: true })
+      .getByRole("button", { name: "Install hook", exact: true })
       .first()
       .click();
     await expect(
-      page.getByRole("heading", { name: `安装 ${name} Hook`, exact: true }),
+      page.getByRole("heading", { name: `Install ${name} hook`, exact: true }),
     ).toBeVisible();
-    await page.getByRole("combobox", { name: "安装范围", exact: true }).click();
-    await page.getByRole("option", { name: "指定项目", exact: true }).click();
-    await page.getByLabel("项目绝对路径").fill(join(dir, "project"));
+    await page.getByRole("combobox", { name: "Install scope", exact: true }).click();
+    await page.getByRole("option", { name: "Specific project", exact: true }).click();
+    await page.getByLabel("Absolute project path").fill(join(dir, "project"));
     await page
       .locator(".modal")
-      .getByRole("button", { name: "安装 Hook", exact: true })
+      .getByRole("button", { name: "Install hook", exact: true })
       .click();
     await expect(page.locator(".modal")).toHaveCount(0);
     const row = page
@@ -87,8 +87,8 @@ test("multi-agent project installation, actual event states and responsive theme
       .first()
       .locator("tbody>tr")
       .filter({ hasText: name });
-    await expect(row).toContainText("已配置");
-    await expect(row).toContainText("尚未收到事件");
+    await expect(row).toContainText("Configured");
+    await expect(row).toContainText("No events yet");
     const registration = await request.post(base + "/api/v1/instances", {
       headers: { Authorization: "Bearer fixture-hook" },
       data: {
@@ -101,15 +101,15 @@ test("multi-agent project installation, actual event states and responsive theme
       },
     });
     expect(registration.ok()).toBeTruthy();
-    await expect(row).toContainText("已配置");
-    await expect(row).toContainText("已收到过事件");
+    await expect(row).toContainText("Configured");
+    await expect(row).toContainText("Events received");
     await expect(
       page
         .locator("table")
         .nth(1)
         .locator("tbody>tr")
         .filter({ hasText: name }),
-    ).toContainText("事件接入");
+    ).toContainText("Event access");
   }
   expect(
     (await page.locator(".connection-card").boundingBox())!.height,
@@ -118,15 +118,15 @@ test("multi-agent project installation, actual event states and responsive theme
     path: join(output, "agents-light.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "切换深色主题" }).click();
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.screenshot({
     path: join(output, "agents-dark.png"),
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("combobox", { name: "选择 Agent", exact: true }).click();
-  const menu = page.getByRole("listbox", { name: "选择 Agent", exact: true });
+  await page.getByRole("combobox", { name: "Select Agent", exact: true }).click();
+  const menu = page.getByRole("listbox", { name: "Select Agent", exact: true });
   const box = await menu.boundingBox();
   expect(box!.x).toBeGreaterThanOrEqual(0);
   expect(box!.x + box!.width).toBeLessThanOrEqual(391);
@@ -138,7 +138,7 @@ test("multi-agent project installation, actual event states and responsive theme
     ),
   ).toBeTruthy();
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await page.getByRole("button", { name: "切换浅色主题" }).click();
+  await page.getByRole("button", { name: "Switch to light theme" }).click();
   const row = page
     .locator("table")
     .first()
@@ -157,13 +157,13 @@ test("multi-agent project installation, actual event states and responsive theme
       .nth(1)
       .locator("tbody>tr")
       .filter({ hasText: "Claude Code" }),
-  ).toContainText("已结束");
-  await expect(row).toContainText("已配置");
-  await expect(row).toContainText("已收到过事件");
-  await row.getByRole("button", { name: "卸载", exact: true }).click();
-  await page.getByRole("button", { name: "移除入口" }).click();
-  await expect(row).toContainText("已卸载");
-  await expect(row).toContainText("已收到过事件");
+  ).toContainText("Ended");
+  await expect(row).toContainText("Configured");
+  await expect(row).toContainText("Events received");
+  await row.getByRole("button", { name: "Uninstall", exact: true }).click();
+  await page.getByRole("button", { name: "Remove entry" }).click();
+  await expect(row).toContainText("Uninstalled");
+  await expect(row).toContainText("Events received");
   expect(
     JSON.parse(
       await readFile(join(dir, "project", ".claude", "settings.json"), "utf8"),
@@ -175,10 +175,10 @@ test("multi-agent project installation, actual event states and responsive theme
       .first()
       .locator("tbody>tr")
       .filter({ hasText: "Codex" }),
-  ).toContainText("已收到过事件");
+  ).toContainText("Events received");
   await page.goto(base + "/sessions");
   await expect(page.locator(".session-item")).toHaveCount(4);
-  await expect(page.locator(".session-item").first()).toContainText("事件接入");
+  await expect(page.locator(".session-item").first()).toContainText("Event access");
   expect(await page.locator(".session-item .dot.green").count()).toBe(0);
   expect(errors).toEqual([]);
 });

@@ -28,7 +28,7 @@ const helpOpen = ref(false);
         <button
           type="button"
           class="setting-help-button"
-          :aria-label="`${label}说明`"
+          :aria-label="`${label} help`"
           :aria-describedby="`${id}-help`"
           :aria-expanded="helpOpen"
           @click="helpOpen = true"

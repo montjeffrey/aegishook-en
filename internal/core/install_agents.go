@@ -73,12 +73,12 @@ func loadHookDocument(path string) (map[string]any, []byte, os.FileMode, error) 
 	}
 	st, err := os.Lstat(path)
 	if err != nil || !st.Mode().IsRegular() {
-		return nil, nil, mode, errors.New("配置必须是普通文件，拒绝替换符号链接")
+		return nil, nil, mode, errors.New("config must be a regular file; refusing to replace a symlink")
 	}
 	mode = st.Mode().Perm()
 	var doc map[string]any
 	if json.Unmarshal(b, &doc) != nil || doc == nil {
-		return nil, nil, mode, errors.New("现有配置不是有效 JSON 对象，未修改")
+		return nil, nil, mode, errors.New("existing config is not a valid JSON object; left unchanged")
 	}
 	return doc, b, mode, nil
 }
@@ -92,7 +92,7 @@ func modifyHookDocument(i Installation, install bool) ([]byte, []byte, os.FileMo
 		var valid bool
 		hooks, valid = value.(map[string]any)
 		if !valid {
-			return nil, nil, mode, errors.New("现有 hooks 格式异常")
+			return nil, nil, mode, errors.New("existing hooks format is invalid")
 		}
 	}
 	for _, event := range hookEvents(i.Agent) {
@@ -101,7 +101,7 @@ func modifyHookDocument(i Installation, install bool) ([]byte, []byte, os.FileMo
 			var valid bool
 			list, valid = value.([]any)
 			if !valid {
-				return nil, nil, mode, errors.New("现有事件配置格式异常")
+				return nil, nil, mode, errors.New("existing event config format is invalid")
 			}
 		}
 		want := hookGroup(i, event)
@@ -116,14 +116,14 @@ func modifyHookDocument(i Installation, install bool) ([]byte, []byte, os.FileMo
 			}
 			// A modified owned handler must be resolved by its owner, never silently overwritten.
 			if bytes.Contains(b, []byte(strings.Trim(string(mustJSON(i.ManagedCommand)), "\""))) {
-				return nil, nil, mode, fmt.Errorf("%s 中 AegisHook 入口已被修改，请先检查配置", event)
+				return nil, nil, mode, fmt.Errorf("the AegisHook entry in %s was modified; check the config first", event)
 			}
 			next = append(next, group)
 		}
 		if install {
 			next = append(next, want)
 		} else if !found && i.Installed && len(old) > 0 {
-			return nil, nil, mode, fmt.Errorf("%s 中自有入口缺失或已更改，未删除其它配置", event)
+			return nil, nil, mode, fmt.Errorf("the AegisHook entry in %s is missing or changed; other config was not removed", event)
 		}
 		if len(next) > 0 {
 			hooks[event] = next
@@ -149,15 +149,15 @@ func (e *Engine) InstallAgent(agent, scope, project, piDir string) (Installation
 	defer e.mu.Unlock()
 	var out Installation
 	if AgentName(agent) == "" {
-		return out, errors.New("未知 Agent 类型")
+		return out, errors.New("unknown agent type")
 	}
 	if scope != "global" && scope != "project" {
-		return out, errors.New("安装范围必须是 global 或 project")
+		return out, errors.New("install scope must be global or project")
 	}
 	base := agentHome(agent)
 	if scope == "project" {
 		if !filepath.IsAbs(project) {
-			return out, errors.New("项目须使用绝对路径")
+			return out, errors.New("project must use an absolute path")
 		}
 		real, err := filepath.EvalSymlinks(project)
 		if err != nil {
@@ -165,13 +165,13 @@ func (e *Engine) InstallAgent(agent, scope, project, piDir string) (Installation
 		}
 		st, err := os.Stat(real)
 		if err != nil || !st.IsDir() {
-			return out, errors.New("项目目录无效")
+			return out, errors.New("project directory is invalid")
 		}
 		project = real
 		base = filepath.Join(real, "."+agent)
 	}
 	if !filepath.IsAbs(base) {
-		return out, errors.New("Agent 配置目录须为绝对路径")
+		return out, errors.New("agent config directory must be an absolute path")
 	}
 	entry := filepath.Join(base, "hooks.json")
 	switch agent {
@@ -183,7 +183,7 @@ func (e *Engine) InstallAgent(agent, scope, project, piDir string) (Installation
 		entry = filepath.Join(base, "plugins", "aegishook.js")
 	}
 	if e.IntegrationBinary == "" {
-		return out, errors.New("请先启动服务准备适配器")
+		return out, errors.New("start the service first to prepare the adapter")
 	}
 	entries, err := list[Installation](e, "installations")
 	if err != nil {
@@ -194,7 +194,7 @@ func (e *Engine) InstallAgent(agent, scope, project, piDir string) (Installation
 			out = v
 		}
 		if agent == "grok" && v.Agent == agent && v.Installed && v.Entry != entry {
-			return out, errors.New("Grok 未保证原生调用 ID，暂不同时安装多个范围；请先卸载另一范围")
+			return out, errors.New("Grok does not guarantee native call IDs, so multiple scopes cannot be installed at once; uninstall the other scope first")
 		}
 	}
 	if out.ID == "" {
@@ -203,7 +203,7 @@ func (e *Engine) InstallAgent(agent, scope, project, piDir string) (Installation
 	oldCommand := out.ManagedCommand
 	out.ManagedCommand = hookCommand(e.IntegrationBinary, filepath.Join(e.Dir, "adapter", "connection.json"), agent, runtime.GOOS)
 	if out.Installed && oldCommand != "" && oldCommand != out.ManagedCommand {
-		return out, errors.New("程序路径已变化，请先用原程序卸载该入口再安装")
+		return out, errors.New("the program path changed; uninstall this entry with the original program before installing")
 	}
 	if err = os.MkdirAll(filepath.Dir(entry), 0700); err != nil {
 		return out, err
@@ -216,13 +216,13 @@ func (e *Engine) InstallAgent(agent, scope, project, piDir string) (Installation
 		out.ManagedContent = "// AegisHook managed entry\nexport { default } from " + string(mustJSON(moduleURL)) + ";\n"
 		old, err = os.ReadFile(entry)
 		if err == nil && string(old) != out.ManagedContent {
-			return out, errors.New("同名插件非自有或已修改，拒绝覆盖")
+			return out, errors.New("a plugin with the same name is not ours or was modified; refusing to overwrite")
 		}
 		if err != nil && !os.IsNotExist(err) {
 			return out, err
 		}
 		if st, er := os.Lstat(entry); er == nil && !st.Mode().IsRegular() {
-			return out, errors.New("插件入口须为普通文件")
+			return out, errors.New("plugin entry must be a regular file")
 		}
 		next = []byte(out.ManagedContent)
 	} else {
@@ -256,7 +256,7 @@ func (e *Engine) uninstallAgent(i Installation) error {
 			old = nil
 			err = nil
 		} else if err == nil && string(old) != i.ManagedContent {
-			err = errors.New("插件入口已更改，拒绝删除")
+			err = errors.New("plugin entry changed; refusing to delete")
 		}
 		if err != nil {
 			return err

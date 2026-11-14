@@ -51,7 +51,7 @@ func Open(dir string) (*Engine, error) {
 	}
 	if err = lockProcessFile(lock); err != nil {
 		lock.Close()
-		return nil, errors.New("该数据目录已有 AegisHook 进程，请使用运行中服务的界面或命令")
+		return nil, errors.New("another AegisHook process is already using this data directory; use the running service's UI or commands")
 	}
 	opened := false
 	defer func() {
@@ -117,7 +117,7 @@ func Open(dir string) (*Engine, error) {
 			r.Decision = "reject"
 			r.NeedsHuman = false
 			r.RuleID = "E_RESTART"
-			r.Comment = "审查服务已重启，原请求已失效，请重新提交。"
+			r.Comment = "The review service restarted and the original request is no longer valid. Please resubmit."
 			r.Execution = "not_executed"
 			now := e.clock()
 			r.DecidedAt = &now
@@ -389,13 +389,13 @@ func (e *Engine) SaveSettings(s Settings, key *string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if s.Mode != "human" && s.Mode != "model" {
-		return errors.New("无效审查模式")
+		return errors.New("invalid review mode")
 	}
 	if s.ApprovalSeconds < 10 || s.ApprovalSeconds > 86400 || s.ModelSeconds < 1 || s.ModelSeconds > 120 {
-		return errors.New("超时设置超出范围")
+		return errors.New("timeout setting is out of range")
 	}
 	if len(s.Prompt) < 20 || len(s.Prompt) > 32000 {
-		return errors.New("提示词应为 20–32000 字符")
+		return errors.New("prompt must be 20-32000 characters")
 	}
 	if err := s.Model.Pricing.validate(); err != nil {
 		return err
@@ -404,7 +404,7 @@ func (e *Engine) SaveSettings(s Settings, key *string) error {
 		s.Model.Protocol = "openai"
 	}
 	if !hasExact(s.Model.Protocol, "openai", "anthropic") {
-		return errors.New("不支持的模型协议")
+		return errors.New("unsupported model protocol")
 	}
 	s.Model.APIKey = e.Settings.Model.APIKey
 	changed := s.Model.Protocol != e.Settings.Model.Protocol || s.Model.BaseURL != e.Settings.Model.BaseURL || s.Model.Model != e.Settings.Model.Model
@@ -419,7 +419,7 @@ func (e *Engine) SaveSettings(s Settings, key *string) error {
 		}
 	}
 	if s.Mode == "model" && !s.Model.Tested {
-		return errors.New("请先保存模型配置并测试成功，再启用模型审查")
+		return errors.New("save the model config and test it successfully before enabling model review")
 	}
 	s.Model.HasKey = s.Model.APIKey != ""
 	s.Version = e.Settings.Version + 1
@@ -428,10 +428,10 @@ func (e *Engine) SaveSettings(s Settings, key *string) error {
 			return err
 		}
 	}
-	if err := e.change("settings", "current", s, "settings.update", fmt.Sprintf("配置版本 %d，模式 %s", s.Version, s.Mode)); err != nil {
+	if err := e.change("settings", "current", s, "settings.update", fmt.Sprintf("config version %d, mode %s", s.Version, s.Mode)); err != nil {
 		if key != nil {
 			if rollbackErr := AtomicFile(filepath.Join(e.Dir, "model.key"), []byte(e.Settings.Model.APIKey), 0600); rollbackErr != nil {
-				return fmt.Errorf("配置保存失败且密钥回滚失败，请重新保存密钥")
+				return fmt.Errorf("saving the config failed and the key rollback failed; save the key again")
 			}
 		}
 		return err
@@ -495,11 +495,11 @@ func (e *Engine) Expire() {
 		action := ""
 		if e.clock().After(r.Deadline) {
 			r.RuleID = "E_TIMEOUT"
-			r.Comment = "审查等待超时，本次调用已拒绝。"
+			r.Comment = "The review timed out and this call was rejected."
 			action = "review.timeout"
 		} else if !online[r.InstanceID] {
 			r.RuleID = "E_SESSION"
-			r.Comment = "原会话已失联，本次审查已取消，请重新提交。"
+			r.Comment = "The original session lost contact and this review was cancelled. Please resubmit."
 			action = "review.cancel"
 		}
 		if action != "" {

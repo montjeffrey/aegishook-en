@@ -38,14 +38,14 @@ type UsageRecord struct {
 
 func (p ModelPricing) validate() error {
 	if p.Currency != "" && !hasExact(p.Currency, "CNY", "USD") {
-		return errors.New("费用币种须为 CNY 或 USD")
+		return errors.New("cost currency must be CNY or USD")
 	}
 	if p.Enabled && p.Currency == "" {
-		return errors.New("请设置费用币种")
+		return errors.New("set a cost currency")
 	}
 	for _, v := range []float64{p.Input, p.Output, p.CacheRead, p.CacheWrite} {
 		if math.IsNaN(v) || math.IsInf(v, 0) || v < 0 || v > 1e9 {
-			return errors.New("模型单价须为有效的非负数")
+			return errors.New("model unit price must be a valid non-negative number")
 		}
 	}
 	return nil

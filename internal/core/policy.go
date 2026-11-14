@@ -56,12 +56,12 @@ func Redact(v any) any {
 	}
 }
 func BuiltinRules() []Rule {
-	names := []string{"禁止修改密码及登录状态", "禁止修改目标系统配置", "禁止修改账号与权限", "禁止破坏关键数据和文件", "禁止停止或重启业务服务", "禁止明确的拒绝服务操作"}
+	names := []string{"Block password and login state changes", "Block target system configuration changes", "Block account and permission changes", "Block destruction of critical data and files", "Block stopping or restarting business services", "Block explicit denial-of-service operations"}
 	out := []Rule{}
 	for i, n := range names {
 		out = append(out, Rule{ID: fmt.Sprintf("R%d", i+1), Name: n, Decision: "reject", Enabled: true, Builtin: true, Matcher: "semantic", Target: "arguments"})
 	}
-	out = append(out, Rule{ID: "A7", Name: "读取与查询工具", Decision: "approve", Enabled: true, Builtin: true, Matcher: "semantic", Target: "arguments"})
+	out = append(out, Rule{ID: "A7", Name: "Read and query tools", Decision: "approve", Enabled: true, Builtin: true, Matcher: "semantic", Target: "arguments"})
 	for _, preset := range detailedRuleCatalog {
 		out = append(out, Rule{ID: preset.id, Name: preset.name, Decision: "reject", Enabled: !preset.optIn, Builtin: true, Matcher: "semantic", Target: "arguments", Priority: preset.priority})
 	}
@@ -71,7 +71,7 @@ func BuiltinRules() []Rule {
 	return out
 }
 func reject(id, what string) *Decision {
-	return &Decision{Decision: "reject", RuleID: id, Comment: "实际操作：" + what + "；成功后的后果：可能改变受保护的系统状态；命中规则：" + id + "。请改用只读验证方式。"}
+	return &Decision{Decision: "reject", RuleID: id, Comment: "Actual operation: " + what + "; Consequence if successful: may change protected system state; Matched rule: " + id + ". Use a read-only verification method instead."}
 }
 func valueAt(m map[string]any, path string) any {
 	var v any = m
@@ -111,25 +111,25 @@ func builtinMatchesPaths(input ReviewInput, cwd string, resolve func(string, str
 	cmd := argumentText(input.Arguments, "command", "cmd")
 	// Only confident effects trigger hard rules. Opaque programs fall through to the configured reviewer.
 	if has(name, "reset_password", "change_password", "set_password", "logout_user") {
-		add("R1", "修改密码或用户登录状态")
+		add("R1", "change a password or user login state")
 	}
 	if has(name, "create_user", "delete_user", "update_user", "create_role", "delete_role", "grant_permission") {
-		add("R3", "修改账号或权限")
+		add("R3", "change accounts or permissions")
 	}
 	method := strings.ToUpper(fmt.Sprint(input.Arguments["method"]))
 	requestURL := fmt.Sprint(input.Arguments["url"])
 	if method != "GET" && method != "HEAD" && method != "<nil>" {
 		if regexp.MustCompile(`(?i)/(password|reset-password|logout)(/|\?|$)`).MatchString(requestURL) {
-			add("R1", "通过接口修改密码或登录状态")
+			add("R1", "change a password or login state through an API")
 		}
 		if regexp.MustCompile(`(?i)/(users|accounts|roles|permissions)(/|\?|$)`).MatchString(requestURL) {
-			add("R3", "通过接口修改账号或权限")
+			add("R3", "change accounts or permissions through an API")
 		}
 	}
 	if name == "write" || name == "edit" {
 		p := argumentText(input.Arguments, "path", "file_path", "filePath")
 		if protectedPath(resolve(p, cwd)) {
-			add("R2", "写入系统配置文件")
+			add("R2", "write a system configuration file")
 		}
 	}
 	if name == "bash" || cmd != "" {
@@ -139,7 +139,7 @@ func builtinMatchesPaths(input ReviewInput, cwd string, resolve func(string, str
 				if red, ok := n.(*syntax.Redirect); ok && red.Word != nil {
 					if red.Op == syntax.RdrOut || red.Op == syntax.AppOut || red.Op == syntax.RdrAll || red.Op == syntax.AppAll {
 						if protectedPath(resolve(literalWord(red.Word), cwd)) {
-							add("R2", "重定向写入系统配置")
+							add("R2", "redirect output into system configuration")
 						}
 					}
 				}
@@ -159,52 +159,52 @@ func builtinMatchesPaths(input ReviewInput, cwd string, resolve func(string, str
 				}
 				switch exe {
 				case "passwd", "chpasswd", "set-localuser":
-					add("R1", "修改用户密码")
+					add("R1", "change a user password")
 				case "useradd", "userdel", "usermod", "adduser", "deluser", "groupadd", "groupdel", "groupmod", "dscl", "new-localuser", "remove-localuser", "rename-localuser", "enable-localuser", "disable-localuser", "new-localgroup", "remove-localgroup", "add-localgroupmember", "remove-localgroupmember":
-					add("R3", "修改系统账号或用户组")
+					add("R3", "change system accounts or user groups")
 				case "shutdown", "reboot", "halt", "poweroff", "killall", "pkill", "stop-service", "restart-service", "stop-process", "stop-computer", "restart-computer":
-					add("R5", "停止系统或业务进程")
+					add("R5", "stop a system or business process")
 				case "systemctl", "service", "launchctl":
 					if regexp.MustCompile(`\b(stop|restart|disable|unload|bootout)\b`).MatchString(args) {
-						add("R5", "停止或重启业务服务")
+						add("R5", "stop or restart a business service")
 					}
 				case "set-service", "set-netfirewallprofile", "new-netfirewallrule", "remove-netfirewallrule", "register-scheduledtask", "unregister-scheduledtask", "set-scheduledtask":
-					add("R2", "修改 Windows 服务、防火墙或计划任务配置")
+					add("R2", "change Windows service, firewall or scheduled task configuration")
 				case "crontab":
 					if !regexp.MustCompile(`^(-l|--list)$`).MatchString(strings.TrimSpace(args)) {
-						add("R2", "修改计划任务")
+						add("R2", "change a scheduled task")
 					}
 				case "iptables", "nft", "ufw", "firewall-cmd":
 					if !has(args, "--list", "--status", "-l", "status") {
-						add("R2", "修改防火墙配置")
+						add("R2", "change firewall configuration")
 					}
 				case "rm", "rmdir", "shred":
 					for _, w := range words[1:] {
 						p := filepath.Clean(w)
 						if p == "/" || has(p, "/etc", "/var/lib", "/home", "/Users", "/var/www") || p == "~" || p == "$HOME" {
-							add("R4", "删除重要文件或数据目录")
+							add("R4", "delete important files or a data directory")
 						}
 					}
 				case "mkfs", "mkfs.ext4", "mkfs.xfs":
-					add("R4", "格式化文件系统")
+					add("R4", "format a filesystem")
 				case "dd":
 					if has(args, "of=/dev/") {
-						add("R4", "覆盖磁盘设备")
+						add("R4", "overwrite a disk device")
 					}
 				case "hping3":
 					if strings.Contains(args, "--flood") {
-						add("R6", "发送洪泛流量")
+						add("R6", "send flood traffic")
 					}
 				}
 				if has(exe, "mysql", "psql", "sqlite", "sqlcmd") {
 					if regexp.MustCompile(`(?i)\b(drop\s+(table|database)|truncate\s+(table\s+)?\w+)`).MatchString(cmd) {
-						add("R4", "删除数据库对象")
+						add("R4", "delete database objects")
 					}
 					if regexp.MustCompile(`(?i)\bdelete\s+from\s+\w+\s*(;|"|'|$)`).MatchString(cmd) {
-						add("R4", "全表删除数据")
+						add("R4", "delete all rows in a table")
 					}
 					if regexp.MustCompile(`(?i)\b(create|alter|drop)\s+(user|role)\b|\b(grant|revoke)\b`).MatchString(cmd) {
-						add("R3", "修改数据库账号权限")
+						add("R3", "change database account permissions")
 					}
 				}
 				return true
@@ -213,11 +213,11 @@ func builtinMatchesPaths(input ReviewInput, cwd string, resolve func(string, str
 	}
 	if has(name, "sql", "database", "query") {
 		if regexp.MustCompile(`(?i)\b(drop\s+(table|database)|truncate\s+)`).MatchString(raw) {
-			add("R4", "删除数据库对象")
+			add("R4", "delete database objects")
 		}
 	}
 	if hasExact(name, "read", "grep", "find", "ls", "glob") {
-		add("A7", "读取或查询")
+		add("A7", "read or query")
 	}
 	return hits
 }
@@ -302,16 +302,16 @@ func evaluatePaths(in ReviewInput, rules []Rule, cwd string, resolve func(string
 		if !matched {
 			continue
 		}
-		consequence := "按配置规则裁决该调用"
+		consequence := "decide this call by the configured rule"
 		if r.Matcher == "semantic" {
-			consequence = "可能改变目标系统状态"
+			consequence = "may change target system state"
 			if r.ID == "A7" {
-				consequence = "返回查询结果"
+				consequence = "returns query results"
 			}
 		}
-		comment := "实际操作：" + what + "；成功后的后果：" + consequence + "；命中规则：" + r.ID + "（" + r.Name + "）"
+		comment := "Actual operation: " + what + "; Consequence if successful: " + consequence + "; Matched rule: " + r.ID + " (" + r.Name + ")"
 		if r.Message != "" {
-			comment += "；" + r.Message
+			comment += "; " + r.Message
 		}
 		return &Decision{Decision: r.Decision, RuleID: r.ID, Comment: comment}
 	}
@@ -337,43 +337,43 @@ func (e *Engine) SaveRule(r Rule) error {
 		}
 	}
 	if !known && !regexp.MustCompile(`^U_[A-Za-z0-9_-]{1,64}$`).MatchString(r.ID) {
-		return errors.New("无效规则编号；新规则编号须以 U_ 开头")
+		return errors.New("invalid rule ID; new rule IDs must start with U_")
 	}
 	if !known && r.Builtin {
-		return errors.New("自定义规则不能标记为内置规则")
+		return errors.New("a custom rule cannot be marked as a built-in rule")
 	}
 	r.Builtin = known
 	r = normalizeRule(r)
 	if r.Decision != "approve" && r.Decision != "reject" {
-		return errors.New("无效裁决")
+		return errors.New("invalid decision")
 	}
 	if len(r.Pattern) > 2048 || strings.TrimSpace(r.Name) == "" || len(r.Name) > 200 || len(r.Message) > 4000 {
-		return errors.New("规则名称、表达式或消息无效")
+		return errors.New("rule name, expression or message is invalid")
 	}
 	if !hasExact(r.Target, "arguments", "toolName") {
-		return errors.New("无效匹配对象")
+		return errors.New("invalid match target")
 	}
 	switch r.Matcher {
 	case "semantic":
 		if !known {
-			return errors.New("语义识别仅适用于内置规则")
+			return errors.New("semantic matching applies only to built-in rules")
 		}
 		if r.Target != "arguments" || r.Field != "" || r.Pattern != "" {
-			return errors.New("语义识别不使用参数路径或表达式，请切换匹配方式")
+			return errors.New("semantic matching does not use an argument path or expression; switch the match method")
 		}
 	case "regex":
 		if r.Pattern == "" {
-			return errors.New("请填写匹配表达式")
+			return errors.New("enter a match expression")
 		}
 		if _, err := regexp.Compile(r.Pattern); err != nil {
-			return errors.New("正则表达式无效")
+			return errors.New("regular expression is invalid")
 		}
 	case "contains":
 		if r.Pattern == "" {
-			return errors.New("请填写匹配文本")
+			return errors.New("enter match text")
 		}
 	default:
-		return errors.New("无效匹配方式")
+		return errors.New("invalid match method")
 	}
 	return e.change("rules", r.ID, r, "rule.save", r.Name)
 }
@@ -381,7 +381,7 @@ func (e *Engine) DeleteRule(id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if !strings.HasPrefix(id, "U_") {
-		return errors.New("内置规则请使用停用，或编辑后恢复默认")
+		return errors.New("for a built-in rule, disable it, or edit it and then restore the default")
 	}
 	return e.change("rules", id, nil, "rule.delete", id)
 }
@@ -393,29 +393,29 @@ func (e *Engine) SaveScope(s Scope) error {
 	}
 	if s.NodeID != "" {
 		if !hasExact(s.Platform, "linux", "darwin", "windows") || !agentPathAbs(s.Project, s.Platform) {
-			return errors.New("远程授权范围须填写节点平台和绝对项目路径")
+			return errors.New("a remote authorization scope needs a node platform and an absolute project path")
 		}
 	} else if !filepath.IsAbs(s.Project) {
-		return errors.New("请填写绝对项目路径")
+		return errors.New("enter an absolute project path")
 	}
 	if s.Name == "" {
-		return errors.New("请填写名称及绝对项目路径")
+		return errors.New("enter a name and an absolute project path")
 	}
 	if s.NodeID == "" {
 		p, err := filepath.EvalSymlinks(s.Project)
 		if err != nil {
-			return errors.New("项目路径不存在")
+			return errors.New("project path does not exist")
 		}
 		s.Project = p
 	}
 	for _, p := range s.Paths {
 		if (s.NodeID == "" && !filepath.IsAbs(p)) || (s.NodeID != "" && !agentPathAbs(p, s.Platform)) {
-			return errors.New("允许路径须为绝对路径")
+			return errors.New("allowed paths must be absolute")
 		}
 	}
 	for _, t := range s.Targets {
 		if t == "" || strings.ContainsAny(t, "/ :") {
-			return errors.New("目标须为精确主机名或 IP，不含协议和端口")
+			return errors.New("target must be an exact host name or IP, without protocol or port")
 		}
 	}
 	return e.change("scopes", s.ID, s, "scope.save", s.Name)
@@ -447,7 +447,7 @@ func checkScopePaths(in ReviewInput, cwd string, scopes []Scope, resolve func(st
 					}
 				}
 				if !okPath {
-					return reject("SCOPE_PATH", "访问已配置授权范围之外的路径")
+					return reject("SCOPE_PATH", "access a path outside the configured authorization scope")
 				}
 			}
 		}
@@ -459,7 +459,7 @@ func checkScopePaths(in ReviewInput, cwd string, scopes []Scope, resolve func(st
 						host = u.Hostname()
 					}
 					if !hasExact(strings.ToLower(host), s.Targets...) {
-						return reject("SCOPE_TARGET", "访问已配置授权范围之外的目标")
+						return reject("SCOPE_TARGET", "access a target outside the configured authorization scope")
 					}
 				}
 			}

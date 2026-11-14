@@ -45,11 +45,11 @@ func (c client) request(ctx context.Context, path string, body any, out any) err
 	req.Header.Set("Content-Type", "application/json")
 	res, err := c.http.Do(req)
 	if err != nil {
-		return errors.New("审查服务连接失败")
+		return errors.New("review service connection failed")
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return fmt.Errorf("审查服务返回 HTTP %d", res.StatusCode)
+		return fmt.Errorf("review service returned HTTP %d", res.StatusCode)
 	}
 	if out != nil {
 		decoder := json.NewDecoder(io.LimitReader(res.Body, 2<<20))
@@ -58,7 +58,7 @@ func (c client) request(ctx context.Context, path string, body any, out any) err
 		}
 		var extra any
 		if decoder.Decode(&extra) != io.EOF {
-			return errors.New("审查服务返回非法 JSON")
+			return errors.New("review service returned invalid JSON")
 		}
 	}
 	return nil
@@ -97,18 +97,18 @@ func decisionOutput(agent, decision, reason string, out io.Writer) {
 func Run(agent, connection string, in io.Reader, out, stderr io.Writer) (code int) {
 	agent = core.AgentID(agent)
 	deny := func(err error) int {
-		reason := "AegisHook 拒绝执行：" + err.Error()
+		reason := "AegisHook rejected execution: " + err.Error()
 		decisionOutput(agent, "reject", reason, out)
 		fmt.Fprintln(stderr, reason)
 		return 2
 	}
 	defer func() {
 		if recover() != nil {
-			code = deny(errors.New("Hook 内部异常"))
+			code = deny(errors.New("hook internal error"))
 		}
 	}()
 	if !strings.Contains("|claude|codex|grok|opencode|", "|"+agent+"|") {
-		return deny(errors.New("未知客户端"))
+		return deny(errors.New("unknown client"))
 	}
 	// Grok also discovers Claude settings. Only the dedicated Grok adapter handles Grok events.
 	if agent == "claude" && os.Getenv("GROK_HOOK_EVENT") != "" {
@@ -118,11 +118,11 @@ func Run(agent, connection string, in io.Reader, out, stderr io.Writer) (code in
 	var m map[string]any
 	decoder := json.NewDecoder(io.LimitReader(in, 2<<20))
 	if err := decoder.Decode(&m); err != nil || m == nil {
-		return deny(errors.New("Hook 输入不是 JSON 对象"))
+		return deny(errors.New("hook input is not a JSON object"))
 	}
 	var extra any
 	if decoder.Decode(&extra) != io.EOF {
-		return deny(errors.New("Hook 输入含多余内容"))
+		return deny(errors.New("hook input has extra content"))
 	}
 	event := eventName(m)
 	pre := event == "PreToolUse"
@@ -130,26 +130,26 @@ func Run(agent, connection string, in io.Reader, out, stderr io.Writer) (code in
 		if pre || event == "" {
 			return deny(err)
 		}
-		fmt.Fprintln(stderr, "AegisHook："+err.Error())
+		fmt.Fprintln(stderr, "AegisHook: "+err.Error())
 		return 1
 	}
 	var cfg Config
 	b, err := os.ReadFile(connection)
 	if err != nil || json.Unmarshal(b, &cfg) != nil {
-		return fail(errors.New("无法读取 Hook 连接配置"))
+		return fail(errors.New("cannot read hook connection config"))
 	}
 	endpoint, err := localaddr.Endpoint(cfg.Endpoint)
 	if err != nil || cfg.Token == "" {
-		return fail(errors.New("Hook 连接地址或凭据无效：远程须使用 HTTPS"))
+		return fail(errors.New("hook connection address or credential is invalid: remote access requires HTTPS"))
 	}
 	cfg.Endpoint = endpoint
-	c := client{cfg: cfg, http: &http.Client{Timeout: 2500 * time.Millisecond, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("禁止重定向") }}}
+	c := client{cfg: cfg, http: &http.Client{Timeout: 2500 * time.Millisecond, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirects are not allowed") }}}
 	ctx, cancel := context.WithTimeout(context.Background(), 24*time.Hour+time.Minute)
 	defer cancel()
 	session := text(m, "session_id", "sessionId", "sessionID")
 	cwd := text(m, "cwd", "workspaceRoot")
 	if session == "" || !filepath.IsAbs(cwd) {
-		return fail(errors.New("缺少会话 ID 或绝对工作目录"))
+		return fail(errors.New("missing session ID or absolute working directory"))
 	}
 	if real, err := filepath.EvalSymlinks(cwd); err == nil {
 		cwd = real
@@ -162,7 +162,7 @@ func Run(agent, connection string, in io.Reader, out, stderr io.Writer) (code in
 		return passive(c.request(ctx, "/instances/"+instance+"/shutdown", map[string]any{}, nil), stderr)
 	}
 	if !contains(event, "PreToolUse", "PostToolUse", "PostToolUseFailure", "SessionStart", "UserPromptSubmit") {
-		return fail(errors.New("不支持的 Hook 事件"))
+		return fail(errors.New("unsupported hook event"))
 	}
 	if err = c.request(ctx, "/instances/"+instance+"/heartbeat", map[string]any{"state": "idle"}, nil); err != nil {
 		err = c.request(ctx, "/instances", core.Instance{ID: instance, NodeID: cfg.NodeID, Platform: runtime.GOOS, Agent: agent, AgentVersion: text(m, "agent_version"), SessionID: session, Cwd: cwd, HookVersion: core.Version, ConnectionMode: "events"}, nil)
@@ -187,12 +187,12 @@ func Run(agent, connection string, in io.Reader, out, stderr io.Writer) (code in
 	}
 	if !pre {
 		if callID == "" {
-			fmt.Fprintln(stderr, "AegisHook：客户端未提供调用 ID，保留执行结果未知")
+			fmt.Fprintln(stderr, "AegisHook: the client did not provide a call ID; execution result stays unknown")
 			return 0
 		}
 		state, result := resultState(agent, event, m)
 		if state == "" {
-			fmt.Fprintln(stderr, "AegisHook：没有可确认的执行结果，保留等待状态")
+			fmt.Fprintln(stderr, "AegisHook: no execution result to confirm; keeping the pending state")
 			return 0
 		}
 		err = c.request(ctx, "/reviews/"+hash(instance, callID)+"/result", map[string]any{"instanceId": instance, "state": state, "result": result}, nil)
@@ -200,12 +200,12 @@ func Run(agent, connection string, in io.Reader, out, stderr io.Writer) (code in
 	}
 	if callID == "" {
 		if agent != "grok" {
-			return deny(errors.New("客户端未提供工具调用 ID"))
+			return deny(errors.New("client did not provide a tool call ID"))
 		}
 		callID = core.ID()
 	}
 	if tool == "" || args == nil {
-		return deny(errors.New("工具名称或参数对象缺失"))
+		return deny(errors.New("tool name or argument object is missing"))
 	}
 	scriptFiles, scriptStatus := core.CaptureScripts(cwd, tool, args)
 	input := core.ReviewInput{InstanceID: instance, CallID: callID, ToolName: tool, Arguments: args, UserMessage: text(m, "userMessage"), Context: text(m, "context"), Scripts: scriptFiles, ScriptCaptureStatus: scriptStatus}
@@ -230,20 +230,20 @@ func Run(agent, connection string, in io.Reader, out, stderr io.Writer) (code in
 	lastBeat := time.Now()
 	for {
 		if review.ID != expected || !contains(review.Decision, "approve", "reject", "pending") || review.Deadline.IsZero() {
-			return deny(errors.New("服务返回非法裁决"))
+			return deny(errors.New("service returned an invalid decision"))
 		}
 		if review.Decision != "pending" {
 			if review.Comment == "" || review.RuleID == "" || (review.Decision == "approve" && review.Execution != "awaiting_execution") {
-				return deny(errors.New("裁决字段不完整或调用已经执行"))
+				return deny(errors.New("decision fields are incomplete or the call was already executed"))
 			}
 			break
 		}
 		if time.Now().After(review.Deadline.Add(time.Second)) {
-			return deny(errors.New("审查等待超时"))
+			return deny(errors.New("review wait timed out"))
 		}
 		select {
 		case <-ctx.Done():
-			return deny(errors.New("Hook 等待结束"))
+			return deny(errors.New("hook wait ended"))
 		case <-time.After(500 * time.Millisecond):
 		}
 		if time.Since(lastBeat) > 8*time.Second {
@@ -270,7 +270,7 @@ func Run(agent, connection string, in io.Reader, out, stderr io.Writer) (code in
 }
 func passive(err error, stderr io.Writer) int {
 	if err != nil {
-		fmt.Fprintln(stderr, "AegisHook："+err.Error())
+		fmt.Fprintln(stderr, "AegisHook: "+err.Error())
 		return 1
 	}
 	return 0

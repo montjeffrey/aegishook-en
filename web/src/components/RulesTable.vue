@@ -21,22 +21,22 @@ const enabledCount = computed(
 );
 const matcherName = (r: Rule) =>
   r.matcher === "semantic"
-    ? "语义识别"
+    ? "Semantic matching"
     : r.matcher === "contains"
-      ? "包含文本"
-      : "正则表达式";
+      ? "Contains text"
+      : "Regular expression";
 const category = (r: Rule) =>
   r.id.startsWith("R_SYS_")
-    ? "系统命令"
+    ? "System command"
     : r.id.startsWith("R_DB_")
-      ? "数据库"
+      ? "Database"
       : r.id.startsWith("R_HTTP_")
-        ? "HTTP 请求"
+        ? "HTTP request"
         : r.id === "R_NET_PIPE"
-          ? "网络传输"
+          ? "Network transfer"
           : r.builtin
-            ? "基础规则"
-            : "自定义";
+            ? "Base rule"
+            : "Custom";
 const preview = (r: Rule) => {
   const example = r.semantics?.examples[0];
   return r.matcher === "semantic"
@@ -44,7 +44,7 @@ const preview = (r: Rule) => {
       ? String(
           example.argumentsObj.command || JSON.stringify(example.argumentsObj),
         )
-      : r.semantics?.summary || "内置检测"
+      : r.semantics?.summary || "Built-in detection"
     : r.pattern;
 };
 const filtered = computed(() =>
@@ -75,7 +75,7 @@ async function toggle(rule: Rule, enabled: boolean) {
   try {
     await store.action(
       () => api("/rules", "POST", { ...rule, enabled }),
-      enabled ? "规则已启用，对后续调用生效" : "规则已停用，对后续调用生效",
+      enabled ? "Rule enabled; applies to later calls" : "Rule disabled; applies to later calls",
     );
   } finally {
     saving.value.delete(rule.id);
@@ -93,61 +93,61 @@ async function copy(rule: Rule) {
           ].join("\n")
         : rule.pattern,
     );
-    store.toast = "规则内容已复制";
+    store.toast = "Rule content copied";
   } catch {
-    store.error = "复制失败，请在展开的规则内容中手动选择复制";
+    store.error = "Copy failed; select and copy the expanded rule content manually";
   }
 }
 </script>
 
 <template>
   <p class="rules-note muted tiny">
-    展开可查看完整条件、样例和识别范围。每条开关独立生效；基础规则与具体规则可能重叠，关闭一条后仍会检查其余启用规则。
+    Expand a rule to see its full condition, examples and detection scope. Each switch works independently; base rules and specific rules may overlap, and the remaining enabled rules are still checked after you turn one off.
   </p>
   <section class="panel rules-panel">
     <div class="rules-toolbar">
       <div class="search-input">
         <Icon name="Search" :size="16" /><input
           v-model="search"
-          aria-label="搜索规则"
-          placeholder="搜索名称、命令、匹配内容…"
+          aria-label="Search rules"
+          placeholder="Search name, command, match content…"
         />
       </div>
       <AppSelect
         v-model="state"
-        label="规则状态"
+        label="Rule status"
         :options="[
-          { value: 'all', label: '全部状态' },
-          { value: 'enabled', label: '已启用' },
-          { value: 'disabled', label: '已停用' },
+          { value: 'all', label: 'All statuses' },
+          { value: 'enabled', label: 'Enabled' },
+          { value: 'disabled', label: 'Disabled' },
         ]"
       />
       <span class="rules-count"
-        >{{ rules.length }} 条规则 · {{ enabledCount }} 条启用</span
+        >{{ rules.length }} rules · {{ enabledCount }} enabled</span
       >
     </div>
     <div
       class="table-scroll rules-scroll"
       tabindex="0"
-      aria-label="策略规则列表，可横向滚动"
+      aria-label="Policy rules list, scrollable horizontally"
     >
       <table class="rules-table">
         <thead>
           <tr>
-            <th>优先级</th>
-            <th>名称</th>
-            <th>目标</th>
-            <th>类型</th>
-            <th>匹配内容</th>
-            <th>策略</th>
-            <th>启用</th>
-            <th>操作</th>
+            <th>Priority</th>
+            <th>Name</th>
+            <th>Target</th>
+            <th>Type</th>
+            <th>Match</th>
+            <th>Decision</th>
+            <th>Enabled</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <template v-for="r in page.rows" :key="r.id">
             <tr :data-rule-id="r.id" :class="{ 'rule-disabled': !r.enabled }">
-              <td class="rule-priority mono" data-label="优先级">
+              <td class="rule-priority mono" data-label="Priority">
                 {{ r.priority }}
               </td>
               <td class="rule-name">
@@ -157,11 +157,11 @@ async function copy(rule: Rule) {
                   {{ category(r) }}</small
                 >
               </td>
-              <td class="rule-target" data-label="目标">
-                {{ r.target === "toolName" ? "工具名称" : r.field || "工具参数"
-                }}<small>{{ r.tool || "全部工具" }}</small>
+              <td class="rule-target" data-label="Target">
+                {{ r.target === "toolName" ? "Tool name" : r.field || "Tool arguments"
+                }}<small>{{ r.tool || "All tools" }}</small>
               </td>
-              <td class="rule-type" data-label="类型">{{ matcherName(r) }}</td>
+              <td class="rule-type" data-label="Type">{{ matcherName(r) }}</td>
               <td class="rule-condition">
                 <p v-if="r.matcher === 'semantic'">
                   {{ r.semantics?.summary }}
@@ -169,16 +169,16 @@ async function copy(rule: Rule) {
                 <code class="rule-preview">{{ preview(r) }}</code>
                 <div class="rule-condition-footer">
                   <span v-if="r.matcher === 'semantic'" class="muted tiny"
-                    >命中样例 · 不执行</span
+                    >Match example · not executed</span
                   >
                   <button
                     class="text-button"
-                    :aria-label="`${expanded === r.id ? '收起' : '查看'} ${r.name} 的完整条件`"
+                    :aria-label="`${expanded === r.id ? 'Hide' : 'View'} full condition of ${r.name}`"
                     :aria-expanded="expanded === r.id"
                     :aria-controls="`rule-detail-${r.id}`"
                     @click="expanded = expanded === r.id ? '' : r.id"
                   >
-                    {{ expanded === r.id ? "收起条件" : "查看完整条件"
+                    {{ expanded === r.id ? "Hide condition" : "View full condition"
                     }}<Icon
                       :name="expanded === r.id ? 'ChevronUp' : 'ChevronDown'"
                       :size="14"
@@ -186,25 +186,25 @@ async function copy(rule: Rule) {
                   </button>
                 </div>
               </td>
-              <td class="rule-decision" data-label="策略">
+              <td class="rule-decision" data-label="Decision">
                 <span class="badge" :class="r.decision">{{
-                  r.decision === "reject" ? "禁止" : "允许"
+                  r.decision === "reject" ? "Reject" : "Allow"
                 }}</span>
               </td>
               <td class="rule-enabled">
                 <RuleSwitch
                   :model-value="r.enabled"
-                  :label="`启用 ${r.name}`"
+                  :label="`Enable ${r.name}`"
                   :disabled="saving.has(r.id)"
                   @update:model-value="toggle(r, $event)"
-                /><small>{{ r.enabled ? "已启用" : "已停用" }}</small>
+                /><small>{{ r.enabled ? "Enabled" : "Disabled" }}</small>
               </td>
               <td class="rule-actions">
                 <div class="actions">
                   <button
                     class="icon-button"
-                    :aria-label="`编辑 ${r.name}`"
-                    :title="`编辑 ${r.name}`"
+                    :aria-label="`Edit ${r.name}`"
+                    :title="`Edit ${r.name}`"
                     :disabled="saving.has(r.id)"
                     @click="$emit('edit', r)"
                   >
@@ -212,13 +212,13 @@ async function copy(rule: Rule) {
                   ><button
                     v-if="!r.builtin"
                     class="icon-button reject"
-                    :aria-label="`删除 ${r.name}`"
-                    :title="`删除 ${r.name}`"
+                    :aria-label="`Delete ${r.name}`"
+                    :title="`Delete ${r.name}`"
                     :disabled="saving.has(r.id)"
                     @click="
                       store.action(
                         () => api('/rules/' + r.id, 'DELETE'),
-                        '规则已删除',
+                        'Rule deleted',
                       )
                     "
                   >
@@ -231,9 +231,9 @@ async function copy(rule: Rule) {
               <td colspan="8">
                 <div :id="`rule-detail-${r.id}`" class="rule-detail">
                   <div class="rule-detail-heading">
-                    <strong>{{ r.name }} · 完整条件</strong
+                    <strong>{{ r.name }} · full condition</strong
                     ><button class="text-button" @click="copy(r)">
-                      <Icon name="Copy" :size="14" />复制内容
+                      <Icon name="Copy" :size="14" />Copy content
                     </button>
                   </div>
                   <RuleSemantics
@@ -243,23 +243,23 @@ async function copy(rule: Rule) {
                   />
                   <template v-else
                     ><p>
-                      {{ matcherName(r) }} · {{ r.tool || "全部工具" }} ·
+                      {{ matcherName(r) }} · {{ r.tool || "All tools" }} ·
                       {{
                         r.target === "toolName"
-                          ? "工具名称"
-                          : r.field || "完整参数 JSON"
+                          ? "Tool name"
+                          : r.field || "Full arguments JSON"
                       }}
                     </p>
                     <pre>{{ r.pattern }}</pre>
                     <p class="muted tiny">
                       {{
                         r.matcher === "contains"
-                          ? "按原文匹配，区分大小写。"
-                          : "使用 Go 正则语法；可在表达式中使用 (?i) 忽略大小写。"
+                          ? "Matches the literal text, case-sensitive."
+                          : "Uses Go regular expression syntax; use (?i) in the expression to ignore case."
                       }}
                     </p></template
                   >
-                  <p v-if="r.message">裁决说明：{{ r.message }}</p>
+                  <p v-if="r.message">Decision note: {{ r.message }}</p>
                 </div>
               </td>
             </tr>
@@ -267,15 +267,15 @@ async function copy(rule: Rule) {
           <tr v-if="!filtered.length">
             <td colspan="8">
               <div class="empty">
-                <Icon name="Search" :size="28" /><strong>没有匹配的规则</strong>
-                <p>试试其它关键词或切换规则状态。</p>
+                <Icon name="Search" :size="28" /><strong>No matching rules</strong>
+                <p>Try other keywords or change the rule status.</p>
                 <button
                   @click="
                     search = '';
                     state = 'all';
                   "
                 >
-                  清除筛选
+                  Clear filters
                 </button>
               </div>
             </td>
@@ -287,7 +287,7 @@ async function copy(rule: Rule) {
       v-model:page="page.page"
       v-model:page-size="page.pageSize"
       :total="page.total"
-      label="策略规则"
+      label="Policy rules"
     />
   </section>
 </template>

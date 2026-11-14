@@ -28,7 +28,7 @@ func TestEditableBuiltinRulesAndSnapshots(t *testing.T) {
 		t.Fatal(first, err)
 	}
 	edited := original
-	edited.Name, edited.Enabled = "停用密码检查", false
+	edited.Name, edited.Enabled = "Password check disabled", false
 	if err = e.SaveRule(edited); err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestEditableBuiltinRulesAndSnapshots(t *testing.T) {
 	if err != nil || compound.RuleID != "R3" {
 		t.Fatal(compound, err)
 	}
-	edited.Enabled, edited.Decision, edited.Message = true, "approve", "仅用于隔离测试账号"
+	edited.Enabled, edited.Decision, edited.Message = true, "approve", "Only for the isolated test account"
 	if err = e.SaveRule(edited); err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestBuiltinReplacementMatchersAndPriority(t *testing.T) {
 	e := engine(t)
 	r := ruleByID(t, e, "R1")
 	r.Matcher, r.Tool, r.Field, r.Pattern = "regex", "bash", "command", `^echo fixture$`
-	r.Name = "替换后的规则"
+	r.Name = "Replaced rule"
 	if err := e.SaveRule(r); err != nil {
 		t.Fatal(err)
 	}

@@ -73,7 +73,7 @@ func TestHelp(t *testing.T) {
 			if !errors.Is(err, flag.ErrHelp) {
 				t.Fatalf("help returned %v", err)
 			}
-			for _, want := range []string{"用法", "serve", "install", "status", "-host", "-port", "-addr", "--help", "示例"} {
+			for _, want := range []string{"Usage", "serve", "install", "status", "-host", "-port", "-addr", "--help", "Examples"} {
 				if !strings.Contains(out.String(), want) {
 					t.Errorf("help missing %q", want)
 				}

@@ -190,11 +190,11 @@ func TestLifecycleAndOwnership(t *testing.T) {
 	}
 }
 func TestModelSchema(t *testing.T) {
-	valid := `{"decision":"approve","comment":"实际操作：未知脚本；成功后的后果：当前参数未显示明确高危操作；命中规则：D1"}`
+	valid := `{"decision":"approve","comment":"Actual operation: unknown script; Consequence if successful: the current arguments show no explicitly high-risk operation; Matched rule: D1"}`
 	if _, err := ParseModelDecision(valid); err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range []string{"```json\n" + valid + "\n```", strings.Replace(valid, "D1", "无", 1), strings.Replace(valid, "D1", "R1", 1), strings.TrimSuffix(valid, "}") + `,"editedArguments":{}}`, valid + valid} {
+	for _, v := range []string{"```json\n" + valid + "\n```", strings.Replace(valid, "D1", "none", 1), strings.Replace(valid, "D1", "R1", 1), strings.TrimSuffix(valid, "}") + `,"editedArguments":{}}`, valid + valid} {
 		if _, err := ParseModelDecision(v); err == nil {
 			t.Fatalf("invalid accepted %s", v)
 		}
@@ -208,7 +208,7 @@ func TestModelPipelineAndSnapshot(t *testing.T) {
 			t.Error(r.URL)
 		}
 		<-gate
-		json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": `{"decision":"approve","comment":"实际操作：不透明脚本；成功后的后果：当前参数未显示明确高危操作；命中规则：D1"}`}}}})
+		json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": `{"decision":"approve","comment":"Actual operation: opaque script; Consequence if successful: the current arguments show no explicitly high-risk operation; Matched rule: D1"}`}}}})
 	}))
 	defer up.Close()
 	e.mu.Lock()
@@ -302,7 +302,7 @@ func TestAnthropicProtocol(t *testing.T) {
 		if body["system"] == nil || body["max_tokens"] == nil {
 			t.Error("missing Anthropic fields")
 		}
-		json.NewEncoder(w).Encode(map[string]any{"stop_reason": "end_turn", "content": []any{map[string]string{"type": "text", "text": `{"decision":"approve","comment":"实际操作：读取；成功后的后果：获得信息；命中规则：A7"}`}}})
+		json.NewEncoder(w).Encode(map[string]any{"stop_reason": "end_turn", "content": []any{map[string]string{"type": "text", "text": `{"decision":"approve","comment":"Actual operation: read; Consequence if successful: obtains information; Matched rule: A7"}`}}})
 	}))
 	defer up.Close()
 	d, err := callModel(context.Background(), Settings{Prompt: DefaultPrompt, ModelSeconds: 3, Model: ModelConfig{Protocol: "anthropic", BaseURL: up.URL + "/apps/anthropic", Model: "qwen-flash", APIKey: "private-key"}}, map[string]any{"toolName": "read"})

@@ -23,7 +23,7 @@ var deleteMethod = regexp.MustCompile(`(?i)\bmethod\s*[:=]\s*(['"])DELETE['"]`)
 
 func detailedBuiltinMatches(in ReviewInput, cwd string, resolve func(string, string) string) map[string]string {
 	hits := map[string]string{}
-	add := func(id string) { hits[id] = "命中明确的命令或请求条件" }
+	add := func(id string) { hits[id] = "matched an explicit command or request condition" }
 	name := strings.ToLower(in.ToolName)
 	checkHTTP := func(method, address string) {
 		method = strings.ToUpper(method)

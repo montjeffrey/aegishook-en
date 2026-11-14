@@ -12,14 +12,14 @@ func TestUpgradeDataGuardPreservesCustomization(t *testing.T) {
 		t.Fatal(err)
 	}
 	legacy := string(old)
-	prompt := "自定义前言\n\n" + legacy + "\n\n自定义输出要求"
-	if got := upgradeDataGuard(prompt); got != "自定义前言\n\n"+DataGuardPrompt+"\n\n自定义输出要求" {
+	prompt := "Custom preface\n\n" + legacy + "\n\nCustom output requirements"
+	if got := upgradeDataGuard(prompt); got != "Custom preface\n\n"+DataGuardPrompt+"\n\nCustom output requirements" {
 		t.Fatal("failed to replace only known legacy block")
 	}
 	for _, unchanged := range []string{
-		"自定义提示词，无附加规则。", DefaultPrompt,
-		strings.Replace(prompt, "R7：", "R7：自定义条件：", 1),
-		strings.Replace(prompt, DataGuardEnd, "", 1),
+		"Custom prompt with no extra rules.", DefaultPrompt,
+		strings.Replace(prompt, "R7：", "R7：custom condition: ", 1),
+		strings.Replace(prompt, legacyDataGuardEnd, "", 1),
 		legacy + legacy,
 	} {
 		if upgradeDataGuard(unchanged) != unchanged {

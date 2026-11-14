@@ -34,25 +34,25 @@ func AgentName(s string) string {
 func DetectAgents() []AgentInfo {
 	out := []AgentInfo{}
 	for _, id := range []string{"pi", "claude", "codex", "opencode", "grok"} {
-		a := AgentInfo{ID: id, Name: AgentName(id), Platform: runtime.GOOS, Integration: "command", Instructions: "安装后重启客户端，并在客户端检查 Hook 已加载。", Limitations: "仅覆盖客户端提供的工具事件；Hook 命令无法启动、被禁用或被客户端超时终止时，客户端可能放行。"}
+		a := AgentInfo{ID: id, Name: AgentName(id), Platform: runtime.GOOS, Integration: "command", Instructions: "Restart the client after installing and check in the client that the hook is loaded.", Limitations: "Covers only the tool events the client provides; if the hook command cannot start, is disabled or is killed by a client timeout, the client may let the call through."}
 		switch id {
 		case "pi":
 			a.Integration = "extension"
-			a.Instructions = "在 Pi 空闲时 /reload 或重启，等待实际心跳。"
-			a.Limitations = "Pi 0.85.1；不覆盖用户 ! 命令或其它扩展内部执行。子进程须自行加载本扩展，父进程的 Hook 不自动覆盖子进程内部工具。Windows 需 Git Bash；符号链接需要开发者模式或相应权限。"
+			a.Instructions = "Run /reload when Pi is idle, or restart it, and wait for a real heartbeat."
+			a.Limitations = "Pi 0.85.1; does not cover user ! commands or execution inside other extensions. A child process must load this extension itself; the parent's hook does not automatically cover tools inside a child process. Windows needs Git Bash; symlinks need developer mode or equivalent permission."
 		case "claude":
-			a.Instructions = "重启 Claude Code，用 /hooks 检查配置；保留客户端自身权限判断。"
-			a.Limitations += " 当前未展示子 Agent 标识，子 Agent 工具事件可能归入父会话；列表中没有独立子会话不等于未审查。"
+			a.Instructions = "Restart Claude Code and check the config with /hooks; the client's own permission checks are kept."
+			a.Limitations += " Sub-agent identity is not shown yet, so sub-agent tool events may be grouped under the parent session; no separate sub-session in the list does not mean unreviewed."
 		case "codex":
-			a.Instructions = "分别重启使用中的 Codex CLI 或桌面端并验证接入；CLI 使用 /hooks 审阅并信任新 Hook，项目本身也须受信任。"
-			a.Limitations += " 此处检测的是 PATH 中的 CLI 版本，不代表桌面端内置版本；需分别核对兼容性和事件；一次接入验证不代表两端均已验证。托管工具和后续 write_stdin 输入不触发新的工具前审查。子 Agent Hook 使用父会话 ID，当前未展示子 Agent 标识。"
+			a.Instructions = "Restart the Codex CLI or desktop app you use, separately, and verify the connection; in the CLI, review and trust the new hook with /hooks, and the project itself must also be trusted."
+			a.Limitations += " The version detected here is the CLI on PATH, not the version bundled with the desktop app; check compatibility and events for each separately, and verifying one does not verify both. Managed tools and later write_stdin input do not trigger a new pre-tool review. Sub-agent hooks use the parent session ID, and sub-agent identity is not shown yet."
 		case "opencode":
 			a.Integration = "plugin"
-			a.Instructions = "重启 OpenCode，插件在会话事件或首次工具调用时注册。"
-			a.Limitations = "不覆盖插件自身的执行；仅在客户端明确报告完成或失败时更新执行结果。子会话按自身 sessionID 记录，当前未展示父子关系。"
+			a.Instructions = "Restart OpenCode; the plugin registers on a session event or the first tool call."
+			a.Limitations = "Does not cover the plugin's own execution; the execution result is updated only when the client explicitly reports completion or failure. Sub-sessions are recorded under their own sessionID, and the parent-child relationship is not shown yet."
 		case "grok":
-			a.Instructions = "重启 Grok Build，项目安装须在客户端 /hooks-trust，使用 /hooks 检查。"
-			a.Limitations += " 无原生调用 ID 时仅记录前置裁决，不推测执行结果；同一数据目录仅允许一个 Grok 安装范围。子会话可单独记录，当前未展示父子关系；运行中或思考中不等于发生工具调用。"
+			a.Instructions = "Restart Grok Build; for a project install, run /hooks-trust in the client and check with /hooks."
+			a.Limitations += " Without a native call ID, only the pre-execution decision is recorded and the execution result is not guessed; one data directory allows only one Grok install scope. Sub-sessions can be recorded separately, and the parent-child relationship is not shown yet; running or thinking does not mean a tool call happened."
 		}
 		if p, err := exec.LookPath(id); err == nil {
 			a.Path = p

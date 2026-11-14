@@ -35,18 +35,18 @@ const store = useConsole(),
   route = useRoute();
 const kind = computed(() => route.path.slice(1));
 const deviceLabel = (id?: string) =>
-  id ? store.clientNodes.find((n) => n.id === id)?.name || id : "控制台本机";
+  id ? store.clientNodes.find((n) => n.id === id)?.name || id : "Console machine";
 const headings: Record<string, string> = {
-  agents: "Agent 接入",
-  rules: "策略规则",
-  scopes: "授权范围",
-  audit: "审计日志",
+  agents: "Agent integration",
+  rules: "Policy rules",
+  scopes: "Authorization scope",
+  audit: "Audit log",
 };
 const sub: Record<string, string> = {
-  agents: "管理各 Agent Hook 的安装配置、接入验证与当前会话状态。",
-  rules: "内置与自定义规则均可编辑；拒绝优先，同类按优先级从高到低匹配。",
-  scopes: "为关联项目设置明确的文件路径与目标范围。",
-  audit: "追溯每次配置变更、审查裁决和 Hook 生命周期操作。",
+  agents: "Manage hook installation, integration verification and current session status for each Agent.",
+  rules: "Built-in and custom rules are both editable; reject takes priority, and rules of the same kind match by priority from high to low.",
+  scopes: "Set explicit file paths and target scope for linked projects.",
+  audit: "Trace every config change, review decision and hook lifecycle operation.",
 };
 const selectedAgent = ref("pi");
 const currentAgent = computed(() =>
@@ -69,9 +69,9 @@ const testTool = ref("bash"),
   testArgs = ref('{"command":"whoami"}'),
   testResult = ref<any>(null);
 const configStatuses: Record<string, string> = {
-  configured: "已配置",
-  uninstalled: "已卸载",
-  entry_error: "入口异常",
+  configured: "Configured",
+  uninstalled: "Uninstalled",
+  entry_error: "Entry error",
 };
 async function detect() {
   try {
@@ -95,8 +95,8 @@ async function install() {
         scope: installScope.value,
         project: project.value,
       }),
-    "安装入口已创建。" +
-      (currentAgent.value?.instructions || "请重新启动客户端。"),
+    "Install entry created. " +
+      (currentAgent.value?.instructions || "Restart the client."),
   );
   if (ok) showInstall.value = false;
   busy.value = false;
@@ -104,7 +104,7 @@ async function install() {
 async function uninstall() {
   const ok = await store.action(
     () => api("/installations/" + removeId.value, "DELETE"),
-    "安装入口已移除；已加载会话需重载或退出",
+    "Install entry removed; loaded sessions must reload or exit",
   );
   if (ok) removeId.value = "";
 }
@@ -130,7 +130,7 @@ async function restoreRule() {
     const defaults: Rule[] = await api("/rules/defaults");
     const preset = defaults.find((r) => r.id === id);
     if (preset) ruleForm.value = { ...preset };
-  }, "已填入默认值，保存后生效");
+  }, "Defaults filled in; they take effect after saving");
 }
 watch(
   () => ruleForm.value?.matcher,
@@ -146,7 +146,7 @@ async function saveRule() {
   if (
     await store.action(
       () => api("/rules", "POST", ruleForm.value),
-      "规则已保存，对后续调用生效",
+      "Rule saved; applies to later calls",
     )
   )
     ruleForm.value = null;
@@ -220,17 +220,17 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
           detect();
         "
       >
-        <Icon name="RefreshCw" :size="16" />刷新</button
+        <Icon name="RefreshCw" :size="16" />Refresh</button
       ><button
         v-if="kind === 'agents'"
         class="primary"
         @click="showInstall = true"
       >
-        <Icon name="Plus" :size="17" />安装 Hook</button
+        <Icon name="Plus" :size="17" />Install hook</button
       ><button v-if="kind === 'rules'" class="primary" @click="newRule">
-        <Icon name="Plus" :size="17" />新建规则</button
+        <Icon name="Plus" :size="17" />New rule</button
       ><button v-if="kind === 'scopes'" class="primary" @click="editScope()">
-        <Icon name="Plus" :size="17" />添加范围
+        <Icon name="Plus" :size="17" />Add scope
       </button>
     </div>
   </div>
@@ -244,17 +244,17 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
           <span
             class="badge"
             :class="currentAgent?.found ? 'approve' : 'pending'"
-            >{{ currentAgent?.found ? "已检测到" : "未检测到命令" }}</span
+            >{{ currentAgent?.found ? "Detected" : "Command not found" }}</span
           >
         </div>
         <p class="muted">
-          {{ currentAgent?.version || "版本未获取" }} ·
-          {{ currentAgent?.platform || "本机" }} ·
+          {{ currentAgent?.version || "Version unknown" }} ·
+          {{ currentAgent?.platform || "This machine" }} ·
           {{
             currentAgent?.integration === "command"
-              ? "命令 Hook"
+              ? "Command hook"
               : currentAgent?.integration === "plugin"
-                ? "插件"
+                ? "Plugin"
                 : "Extension"
           }}
         </p>
@@ -262,7 +262,7 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
       </div>
       <AppSelect
         v-model="selectedAgent"
-        label="选择 Agent"
+        label="Select Agent"
         :options="agentOptions"
       />
     </section>
@@ -275,21 +275,21 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
     </div>
     <section class="panel">
       <div class="panel-heading">
-        <strong>安装范围</strong
+        <strong>Install scope</strong
         ><span class="muted"
-          >当前用户或指定项目 · 历史接入验证不随会话结束清除</span
+          >Current user or a specific project · past integration verification is not cleared when a session ends</span
         >
       </div>
       <div class="table-scroll">
         <table>
           <thead>
             <tr>
-              <th>Agent / 安装范围</th>
-              <th>入口路径</th>
-              <th>安装状态</th>
-              <th>接入验证</th>
-              <th>版本</th>
-              <th>操作</th>
+              <th>Agent / install scope</th>
+              <th>Entry path</th>
+              <th>Install status</th>
+              <th>Integration check</th>
+              <th>Version</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -297,9 +297,9 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
               <td>
                 <small>{{ agentName(i.agent) }}</small
                 ><strong>{{
-                  i.scope === "global" ? "当前用户全局" : "指定项目"
+                  i.scope === "global" ? "Current user (global)" : "Specific project"
                 }}</strong
-                ><small>{{ i.project || "当前用户配置目录" }}</small>
+                ><small>{{ i.project || "Current user config directory" }}</small>
               </td>
               <td class="path-text mono">{{ i.entry }}</td>
               <td>
@@ -315,14 +315,14 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
                   >{{ configStatuses[i.configStatus] }}</span
                 >
                 <small v-if="i.status === 'waiting_reload'"
-                  >已有会话仍需重载</small
+                  >Existing sessions still need to reload</small
                 >
               </td>
               <td>
                 <span class="badge" :class="i.observed ? 'approve' : ''">
-                  {{ i.observed ? "已收到过事件" : "尚未收到事件" }}
+                  {{ i.observed ? "Events received" : "No events yet" }}
                 </span>
-                <small>历史记录，不代表当前会话在线</small>
+                <small>Historical record; does not mean the session is online</small>
               </td>
               <td>{{ i.version }}</td>
               <td>
@@ -331,18 +331,18 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
                   class="text-button reject"
                   @click="removeId = i.id"
                 >
-                  卸载</button
-                ><span v-else class="muted">入口已移除</span>
+                  Uninstall</button
+                ><span v-else class="muted">Entry removed</span>
               </td>
             </tr>
             <tr v-if="!store.installations.length">
               <td colspan="6">
                 <div class="empty">
                   <Icon name="Plug" :size="32" /><strong
-                    >尚未安装 AegisHook</strong
+                    >AegisHook is not installed yet</strong
                   >
-                  <p>选择全局或项目范围，给所选 Agent 接入执行审查。</p>
-                  <button @click="showInstall = true">安装 Hook</button>
+                  <p>Choose global or project scope to enable tool call review for the selected Agent.</p>
+                  <button @click="showInstall = true">Install hook</button>
                 </div>
               </td>
             </tr>
@@ -353,24 +353,24 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
         v-model:page="installationPage.page"
         v-model:page-size="installationPage.pageSize"
         :total="installationPage.total"
-        label="安装范围"
+        label="Install scope"
       />
     </section>
     <section class="panel section-gap">
       <div class="panel-heading">
-        <strong>会话实际状态</strong
+        <strong>Live session status</strong
         ><span class="muted"
-          >Pi：10 秒心跳 / 30 秒失联；其他 Agent：按事件记录</span
+          >Pi: 10 s heartbeat / 30 s lost contact; other Agents: by event records</span
         >
       </div>
       <div class="table-scroll">
         <table>
           <thead>
             <tr>
-              <th>会话</th>
-              <th>工作目录</th>
-              <th>连接</th>
-              <th>最近心跳 / 事件</th>
+              <th>Session</th>
+              <th>Working directory</th>
+              <th>Connection</th>
+              <th>Last heartbeat / event</th>
             </tr>
           </thead>
           <tbody>
@@ -391,7 +391,7 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
             </tr>
             <tr v-if="!store.instances.length">
               <td colspan="4" class="empty-cell">
-                尚未收到 Agent 会话事件。文件已安装不代表会话已加载。
+                No Agent session events received yet. Installed files do not mean the session has loaded them.
               </td>
             </tr>
           </tbody>
@@ -401,13 +401,13 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
         v-model:page="instancePage.page"
         v-model:page-size="instancePage.pageSize"
         :total="instancePage.total"
-        label="会话状态"
+        label="Session status"
       />
     </section>
     <p class="muted tiny">
-      审查范围以客户端提供的工具事件为准，不逐项拦截脚本内部行为。事件接入表示会话曾上报事件；最近活跃表示
-      30
-      秒内收到事件或审查心跳，不代表持续在线。安装范围的接入验证保留历史证据，会话结束、失联或服务重启不会清除。
+      Review scope is based on the tool events the client provides; script internals are not intercepted item by item. Event access means the session has reported events; recently active means
+      an event or review heartbeat was received within 30
+      seconds, which does not mean it is continuously online. Integration verification for an install scope keeps historical evidence, and a session ending, lost contact or a service restart does not clear it.
     </p></template
   >
   <template v-if="kind === 'rules'">
@@ -416,20 +416,20 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
       @edit="ruleForm = JSON.parse(JSON.stringify($event))"
     />
     <section class="panel form-panel section-gap">
-      <h2>规则试判</h2>
+      <h2>Rule dry run</h2>
       <p class="muted">
-        只检查确定性规则，不执行工具，也不调用模型。请使用调用记录中的实际工具名称和参数；限定工具名区分大小写（如
-        Bash 与 bash），参数路径须与该 Agent
-        上报的字段一致。试判不包含项目授权范围检查。
+        Checks deterministic rules only; no tool is run and no model is called. Use the actual tool name and arguments from a call record; tool name restrictions are case-sensitive (for example
+        Bash vs bash), and argument paths must match the fields reported by that
+        Agent. The dry run does not include project authorization scope checks.
       </p>
       <div class="form-two">
-        <label>工具名称<input v-model="testTool" /></label
+        <label>Tool name<input v-model="testTool" /></label
         ><label
-          >参数 JSON<textarea v-model="testArgs" class="mono" rows="3" />
+          >Arguments JSON<textarea v-model="testArgs" class="mono" rows="3" />
         </label>
       </div>
       <button @click="tryRule">
-        <Icon name="FlaskConical" :size="16" />运行试判
+        <Icon name="FlaskConical" :size="16" />Run dry run
       </button>
       <div v-if="testResult" class="notice">
         <span class="badge" :class="testResult.decision">{{
@@ -443,8 +443,8 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
     ><div class="notice">
       <Icon name="Info" />
       <p>
-        配置后，对关联项目中可识别的工具 path、url、host、target
-        字段检查范围。空列表不增加该维度限制；这不是网络沙箱。
+        Once configured, the path, url, host and target fields of recognizable tools in linked projects are checked against the scope.
+        An empty list adds no restriction for that dimension; this is not a network sandbox.
       </p>
     </div>
     <section class="panel">
@@ -452,10 +452,10 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
         <table>
           <thead>
             <tr>
-              <th>名称 / 项目</th>
-              <th>允许目标</th>
-              <th>允许路径</th>
-              <th>操作</th>
+              <th>Name / project</th>
+              <th>Allowed targets</th>
+              <th>Allowed paths</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -464,23 +464,23 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
                 <strong>{{ s.name }}</strong
                 ><small>{{ deviceLabel(s.nodeId) }} · {{ s.project }}</small>
               </td>
-              <td>{{ s.targets.join(", ") || "不额外限制" }}</td>
+              <td>{{ s.targets.join(", ") || "No extra restriction" }}</td>
               <td class="path-text">
-                {{ s.paths.join(", ") || "不额外限制" }}
+                {{ s.paths.join(", ") || "No extra restriction" }}
               </td>
               <td>
                 <div class="actions">
-                  <button class="text-button" @click="editScope(s)">编辑</button
+                  <button class="text-button" @click="editScope(s)">Edit</button
                   ><button
                     class="text-button reject"
                     @click="
                       store.action(
                         () => api('/scopes/' + s.id, 'DELETE'),
-                        '范围已删除',
+                        'Scope deleted',
                       )
                     "
                   >
-                    删除
+                    Delete
                   </button>
                 </div>
               </td>
@@ -489,10 +489,10 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
               <td colspan="4">
                 <div class="empty">
                   <Icon name="ScanFace" :size="32" /><strong
-                    >尚未添加授权范围</strong
+                    >No authorization scope added yet</strong
                   >
-                  <p>可为项目配置精确目标主机和允许访问的路径。</p>
-                  <button @click="editScope()">添加范围</button>
+                  <p>Configure exact target hosts and allowed paths for a project.</p>
+                  <button @click="editScope()">Add scope</button>
                 </div>
               </td>
             </tr>
@@ -503,14 +503,14 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
         v-model:page="scopePage.page"
         v-model:page-size="scopePage.pageSize"
         :total="scopePage.total"
-        label="授权范围"
+        label="Authorization scope"
       /></section
   ></template>
   <template v-if="kind === 'audit'"
     ><div class="audit-search search-input">
       <Icon name="Search" :size="16" /><input
         v-model="filter"
-        placeholder="搜索操作、对象或详情"
+        placeholder="Search action, object or details"
       />
     </div>
     <section class="panel">
@@ -518,10 +518,10 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
         <table>
           <thead>
             <tr>
-              <th>时间</th>
-              <th>操作</th>
-              <th>对象</th>
-              <th>详情</th>
+              <th>Time</th>
+              <th>Action</th>
+              <th>Object</th>
+              <th>Details</th>
             </tr>
           </thead>
           <tbody>
@@ -534,7 +534,7 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
               <td class="audit-detail">{{ a.detail }}</td>
             </tr>
             <tr v-if="!auditRows.length">
-              <td colspan="4" class="empty-cell">暂无匹配的审计记录</td>
+              <td colspan="4" class="empty-cell">No matching audit records</td>
             </tr>
           </tbody>
         </table>
@@ -543,7 +543,7 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
         v-model:page="auditPage.page"
         v-model:page-size="auditPage.pageSize"
         :total="auditPage.total"
-        label="审计日志"
+        label="Audit log"
       /></section
   ></template>
   <div
@@ -553,12 +553,12 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
   >
     <form class="modal" @submit.prevent="install">
       <div class="panel-heading">
-        <h2>安装 {{ currentAgent?.name || "Agent" }} Hook</h2>
+        <h2>Install {{ currentAgent?.name || "Agent" }} hook</h2>
         <button
           type="button"
           class="icon-button"
           @click="showInstall = false"
-          aria-label="关闭"
+          aria-label="Close"
         >
           <Icon name="X" />
         </button>
@@ -566,92 +566,92 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
       <label
         >Agent<AppSelect
           v-model="selectedAgent"
-          label="安装 Agent"
+          label="Agent to install"
           :options="agentOptions"
       /></label>
       <p class="muted tiny">{{ currentAgent?.instructions }}</p>
       <label
-        >安装范围<AppSelect
+        >Install scope<AppSelect
           v-model="installScope"
-          label="安装范围"
+          label="Install scope"
           :options="[
-            { value: 'global', label: '当前用户全局' },
-            { value: 'project', label: '指定项目' },
+            { value: 'global', label: 'Current user (global)' },
+            { value: 'project', label: 'Specific project' },
           ]" /></label
       ><label v-if="installScope === 'project'"
-        >项目绝对路径<input
+        >Absolute project path<input
           v-model="project"
           required
           placeholder="/absolute/path/to/project"
       /></label>
       <p class="muted">
-        只创建 AegisHook 自有入口，不修改其它扩展和项目信任配置。
+        Only creates AegisHook's own entry; other extensions and project trust settings are not modified.
       </p>
       <div class="actions end">
-        <button type="button" @click="showInstall = false">取消</button
-        ><button class="primary" :disabled="busy">安装 Hook</button>
+        <button type="button" @click="showInstall = false">Cancel</button
+        ><button class="primary" :disabled="busy">Install hook</button>
       </div>
     </form>
   </div>
   <div v-if="removeId" class="modal-backdrop" @click.self="removeId = ''">
     <div class="modal">
-      <h2>卸载此安装入口</h2>
+      <h2>Uninstall this install entry</h2>
       <p>
-        其它安装范围保持有效。客户端可能缓存已加载的
-        Hook，移除后请重载或重启客户端；现有连接配置会保留。
+        Other install scopes stay in effect. The client may cache the loaded
+        hook, so reload or restart the client after removal; existing connection settings are kept.
       </p>
       <div class="actions end">
-        <button @click="removeId = ''">取消</button
-        ><button class="danger-button" @click="uninstall">移除入口</button>
+        <button @click="removeId = ''">Cancel</button
+        ><button class="danger-button" @click="uninstall">Remove entry</button>
       </div>
     </div>
   </div>
   <div v-if="ruleForm" class="modal-backdrop" @click.self="ruleForm = null">
     <form class="modal" @submit.prevent="saveRule">
-      <h2>{{ ruleForm.builtin ? "编辑内置规则" : "自定义规则" }}</h2>
+      <h2>{{ ruleForm.builtin ? "Edit built-in rule" : "Custom rule" }}</h2>
       <p class="muted tiny">
-        保存后对新调用生效。未匹配调用进入当前审查模式，AI
-        提示词在系统设置中单独管理。
+        Takes effect for new calls after saving. Calls that match no rule go to the current review mode; the AI
+        prompt is managed separately in System settings.
       </p>
       <div class="form-two">
         <label
-          >规则编号<input
+          >Rule ID<input
             v-model="ruleForm.id"
             required
             :readonly="ruleForm.builtin"
             :pattern="
               ruleForm.builtin ? undefined : 'U_[A-Za-z0-9_-]+'
             " /></label
-        ><label>名称<input v-model="ruleForm.name" required /></label>
+        ><label>Name<input v-model="ruleForm.name" required /></label>
       </div>
       <div class="form-two">
         <label
-          >裁决<AppSelect
+          >Decision<AppSelect
             v-model="ruleForm.decision"
-            label="裁决"
+            label="Decision"
             :options="[
-              { value: 'reject', label: '拒绝' },
-              { value: 'approve', label: '允许' },
+              { value: 'reject', label: 'Reject' },
+              { value: 'approve', label: 'Allow' },
             ]" /></label
         ><label
-          >工具名<input v-model="ruleForm.tool" placeholder="留空匹配全部"
+          >Tool name<input v-model="ruleForm.tool" placeholder="Leave blank to match all"
         /></label>
       </div>
       <div class="form-two">
         <label
-          >匹配方式<AppSelect
+          >Match type<AppSelect
             v-model="ruleForm.matcher"
-            label="匹配方式"
+            label="Match type"
             :options="[
               ...(ruleForm.builtin
-                ? [{ value: 'semantic', label: '内置语义识别' }]
+                ? [{ value: 'semantic', label: 'Built-in semantic matching' }]
                 : []),
-              { value: 'regex', label: '正则表达式' },
-              { value: 'contains', label: '包含文本' },
+              { value: 'regex', label: 'Regular expression' },
+              { value: 'contains', label: 'Contains text' },
             ]"
         /></label>
         <label
-          >优先级<input
+          >Priority<input
             type="number"
             step="1"
             v-model.number="ruleForm.priority"
@@ -665,64 +665,64 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
           :tool="ruleForm.tool"
         />
         <p class="muted tiny">
-          需要替换检测条件时，可切换为正则表达式或包含文本；补充说明只影响返回消息。
+          To replace the detection condition, switch to a regular expression or contains text; the extra note only affects the returned message.
         </p>
       </div>
       <template v-else>
         <label
-          >匹配对象<AppSelect
+          >Match target<AppSelect
             v-model="ruleForm.target"
-            label="匹配对象"
+            label="Match target"
             :options="[
-              { value: 'arguments', label: '工具参数' },
-              { value: 'toolName', label: '工具名称' },
+              { value: 'arguments', label: 'Tool arguments' },
+              { value: 'toolName', label: 'Tool name' },
             ]"
         /></label>
         <label v-if="ruleForm.target === 'arguments'"
-          >参数路径<input
+          >Argument path<input
             v-model="ruleForm.field"
-            placeholder="例如 command 或 request.method；留空匹配完整参数"
+            placeholder="For example command or request.method; leave blank to match the full arguments"
         /></label>
         <label
           >{{
             ruleForm.matcher === "regex"
-              ? "匹配表达式（Go 正则）"
-              : "匹配文本（区分大小写）"
+              ? "Match expression (Go regex)"
+              : "Match text (case-sensitive)"
           }}<textarea v-model="ruleForm.pattern" required rows="3" />
         </label>
       </template>
       <label
-        >裁决补充说明<textarea
+        >Extra decision note<textarea
           v-model="ruleForm.message"
           rows="2"
           maxlength="4000"
-          placeholder="匹配时返回 Agent 的说明，可留空"
+          placeholder="Note returned to the Agent on a match; may be left blank"
         />
       </label>
       <div class="inline">
-        <RuleSwitch v-model="ruleForm.enabled" label="启用当前规则" /><span
-          >启用规则</span
+        <RuleSwitch v-model="ruleForm.enabled" label="Enable this rule" /><span
+          >Enable rule</span
         >
       </div>
       <div class="actions end">
         <button v-if="ruleForm.builtin" type="button" @click="restoreRule">
-          恢复默认
+          Restore default
         </button>
-        <button type="button" @click="ruleForm = null">取消</button
-        ><button class="primary">保存规则</button>
+        <button type="button" @click="ruleForm = null">Cancel</button
+        ><button class="primary">Save rule</button>
       </div>
     </form>
   </div>
   <div v-if="scopeForm" class="modal-backdrop" @click.self="scopeForm = null">
     <form class="modal" @submit.prevent="saveScope">
-      <h2>授权范围</h2>
+      <h2>Authorization scope</h2>
       <label
-        >所属设备<AppSelect
+        >Device<AppSelect
           :model-value="scopeForm.nodeId || ''"
           @update:model-value="scopeForm.nodeId = $event"
-          label="所属设备"
+          label="Device"
           :options="[
-            { value: '', label: '控制台本机' },
+            { value: '', label: 'Console machine' },
             ...store.clientNodes
               .filter((n) => !n.revoked)
               .map((n) => ({
@@ -731,20 +731,20 @@ const auditPage = usePagination(() => auditRows.value, [kind, filter]);
               })),
           ]"
       /></label>
-      <label>名称<input v-model="scopeForm.name" required /></label
-      ><label>项目绝对路径<input v-model="scopeForm.project" required /></label
+      <label>Name<input v-model="scopeForm.name" required /></label
+      ><label>Absolute project path<input v-model="scopeForm.project" required /></label
       ><label
-        >允许目标（每行一个精确主机名或 IP）<textarea
+        >Allowed targets (one exact hostname or IP per line)<textarea
           v-model="targets"
           rows="3"
           placeholder="staging.example.test"
         /></label
       ><label
-        >允许文件路径（每行一个绝对路径）<textarea v-model="paths" rows="3" />
+        >Allowed file paths (one absolute path per line)<textarea v-model="paths" rows="3" />
       </label>
       <div class="actions end">
-        <button type="button" @click="scopeForm = null">取消</button
-        ><button class="primary">保存范围</button>
+        <button type="button" @click="scopeForm = null">Cancel</button
+        ><button class="primary">Save scope</button>
       </div>
     </form>
   </div>

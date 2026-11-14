@@ -63,29 +63,29 @@ func staticParts(parts []syntax.WordPart) (string, bool) {
 
 func scriptReferences(command, dir string, depth int) []scriptReference {
 	if depth > 4 {
-		return []scriptReference{{problem: "嵌套 Shell 命令超过静态解析范围"}}
+		return []scriptReference{{problem: "nested shell command exceeds the static parsing limit"}}
 	}
 	tree, err := syntax.NewParser().Parse(strings.NewReader(command), "review")
 	if err != nil {
-		return []scriptReference{{problem: "无法静态解析当前 Shell 命令"}}
+		return []scriptReference{{problem: "cannot statically parse the current shell command"}}
 	}
 	var refs []scriptReference
 	add := func(word *syntax.Word, direct bool) {
 		path, ok := staticWord(word)
 		if !ok || path == "" {
-			refs = append(refs, scriptReference{problem: "执行脚本路径包含动态展开，无法确定实际文件"})
+			refs = append(refs, scriptReference{problem: "script path contains dynamic expansion; the actual file cannot be determined"})
 			return
 		}
 		if !filepath.IsAbs(path) {
 			if dir == "" {
-				refs = append(refs, scriptReference{path: path, problem: "执行目录不确定，无法解析相对脚本路径"})
+				refs = append(refs, scriptReference{path: path, problem: "working directory is unknown; cannot resolve the relative script path"})
 				return
 			}
 			path = filepath.Join(dir, path)
 		}
 		absolute, err := filepath.Abs(path)
 		if err != nil {
-			refs = append(refs, scriptReference{path: path, problem: "无法解析绝对路径"})
+			refs = append(refs, scriptReference{path: path, problem: "cannot resolve the absolute path"})
 			return
 		}
 		refs = append(refs, scriptReference{path: absolute, direct: direct})
@@ -105,7 +105,7 @@ func scriptReferences(command, dir string, depth int) []scriptReference {
 		args := call.Args
 		name, ok := staticWord(args[0])
 		if !ok {
-			refs = append(refs, scriptReference{problem: "动态命令入口，无法确定是否执行脚本"})
+			refs = append(refs, scriptReference{problem: "dynamic command entry; cannot tell whether a script is executed"})
 			return true
 		}
 		for len(args) > 1 && (name == "env" || name == "sudo" || name == "exec" || name == "timeout" || name == "nohup") {
@@ -122,7 +122,7 @@ func scriptReferences(command, dir string, depth int) []scriptReference {
 			}
 			name, ok = staticWord(args[0])
 			if !ok {
-				refs = append(refs, scriptReference{problem: "包装命令的执行入口不确定"})
+				refs = append(refs, scriptReference{problem: "execution entry of the wrapper command is unknown"})
 				return true
 			}
 		}
@@ -148,7 +148,7 @@ func scriptReferences(command, dir string, depth int) []scriptReference {
 			if len(args) > 1 {
 				add(args[1], false)
 			} else {
-				refs = append(refs, scriptReference{problem: "source 缺少脚本路径"})
+				refs = append(refs, scriptReference{problem: "source is missing a script path"})
 			}
 			return true
 		}
@@ -166,13 +166,13 @@ func scriptReferences(command, dir string, depth int) []scriptReference {
 						if known {
 							refs = append(refs, scriptReferences(inline, dir, depth+1)...)
 						} else {
-							refs = append(refs, scriptReference{problem: "Shell 内联执行内容不确定"})
+							refs = append(refs, scriptReference{problem: "inline shell content is unknown"})
 						}
 					}
 					return true
 				}
 				if value == "-m" {
-					refs = append(refs, scriptReference{problem: "模块执行未提供可确定的本地脚本文件"})
+					refs = append(refs, scriptReference{problem: "module execution does not provide a determinable local script file"})
 					return true
 				}
 				if value == "-" {
@@ -200,7 +200,7 @@ func scriptReferences(command, dir string, depth int) []scriptReference {
 				}
 			}
 			if len(args) > 1 || len(tree.Stmts) > 1 || strings.Contains(command, "|") {
-				refs = append(refs, scriptReference{problem: "解释器从外部标准输入执行代码，无法取得文件快照"})
+				refs = append(refs, scriptReference{problem: "interpreter runs code from external stdin; a file snapshot cannot be taken"})
 			}
 			return true
 		}
@@ -255,7 +255,7 @@ func CaptureScripts(workingDir, tool string, arguments map[string]any) ([]Review
 		seen[ref.path+ref.problem] = true
 		file := ReviewScript{Path: ref.path, ReadError: ref.problem}
 		if file.Path == "" {
-			file.Path = "<无法确定的脚本>"
+			file.Path = "<undetermined script>"
 		}
 		if ref.problem != "" {
 			status = "incomplete"
@@ -263,14 +263,14 @@ func CaptureScripts(workingDir, tool string, arguments map[string]any) ([]Review
 			continue
 		}
 		if len(files) >= maxReviewScriptFiles {
-			files = append(files, ReviewScript{Path: file.Path, ReadError: "本次调用超过 8 个脚本文件"})
+			files = append(files, ReviewScript{Path: file.Path, ReadError: "This call exceeds 8 script files"})
 			status = "incomplete"
 			break
 		}
 		content, err := readScript(ref.path)
 		if err != nil {
 			file.ReadError = err.Error()
-			if strings.Contains(file.ReadError, "超过") {
+			if strings.Contains(file.ReadError, "exceed") {
 				file.Truncated = true
 			}
 			status = "incomplete"
@@ -282,19 +282,19 @@ func CaptureScripts(workingDir, tool string, arguments map[string]any) ([]Review
 			continue
 		}
 		if tool == "shell_send" {
-			file.ReadError = "交互会话可能已切换目录或连接远端，无法确认本机文件就是实际执行脚本"
+			file.ReadError = "The interactive session may have changed directory or connected to a remote host, so the local file cannot be confirmed as the script actually executed"
 			status = "incomplete"
 			files = append(files, file)
 			continue
 		}
 		if !utf8.Valid(content) || bytes.ContainsRune(content, 0) {
-			file.ReadError = "脚本不是有效 UTF-8 文本"
+			file.ReadError = "Script is not valid UTF-8 text"
 			status = "incomplete"
 			files = append(files, file)
 			continue
 		}
 		if len(content) > maxReviewScriptBytes || total+len(content) > maxReviewScriptBytes {
-			file.ReadError = "脚本超过完整快照总量限制（1 MiB），未附加部分内容"
+			file.ReadError = "Scripts exceed the total full snapshot limit (1 MiB); partial content was not attached"
 			file.Truncated = true
 			status = "incomplete"
 			files = append(files, file)
@@ -319,10 +319,10 @@ func readScript(path string) ([]byte, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("不是普通文件")
+		return nil, fmt.Errorf("not a regular file")
 	}
 	if info.Size() > maxReviewScriptBytes {
-		return nil, fmt.Errorf("脚本超过完整快照限制（1 MiB）")
+		return nil, fmt.Errorf("Script exceeds the full snapshot limit (1 MiB)")
 	}
 	f, err := os.Open(path)
 	if err != nil {

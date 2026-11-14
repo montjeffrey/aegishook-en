@@ -22,7 +22,7 @@ func TestRuleFirstAcrossAgentsAndModes(t *testing.T) {
 				t.Cleanup(func() { http.DefaultTransport = original })
 				http.DefaultTransport = reviewRoundTrip(func(req *http.Request) (*http.Response, error) {
 					requests.Add(1)
-					verdict := `{"decision":"approve","comment":"实际操作：处理测试调用；成功后的后果：返回测试结果；命中规则：D1"}`
+					verdict := `{"decision":"approve","comment":"Actual operation: handle a test call; Consequence if successful: returns a test result; Matched rule: D1"}`
 					body, _ := json.Marshal(map[string]any{
 						"choices": []any{map[string]any{"message": map[string]string{"content": verdict}}},
 						"usage":   map[string]int{"prompt_tokens": 10, "completion_tokens": 5},
@@ -39,9 +39,9 @@ func TestRuleFirstAcrossAgentsAndModes(t *testing.T) {
 				e.Settings.Model = ModelConfig{Protocol: "openai", BaseURL: "https://fixture.invalid", Model: "fixture", Tested: true}
 				e.mu.Unlock()
 				for _, rule := range []Rule{
-					{ID: "U_JSON", Name: "完整参数", Enabled: true, Decision: "reject", Matcher: "contains", Target: "arguments", Pattern: `"marker":"fixture"`},
-					{ID: "U_NAME", Name: "工具名允许", Enabled: true, Decision: "approve", Matcher: "regex", Target: "toolName", Pattern: `(?i)^fixture_allow$`, Priority: 1000},
-					{ID: "U_FIELD", Name: "原始字段", Enabled: true, Decision: "reject", Matcher: "regex", Target: "arguments", Field: "request.token", Pattern: `^fixture-secret$`},
+					{ID: "U_JSON", Name: "Full arguments", Enabled: true, Decision: "reject", Matcher: "contains", Target: "arguments", Pattern: `"marker":"fixture"`},
+					{ID: "U_NAME", Name: "Tool name allowed", Enabled: true, Decision: "approve", Matcher: "regex", Target: "toolName", Pattern: `(?i)^fixture_allow$`, Priority: 1000},
+					{ID: "U_FIELD", Name: "Raw field", Enabled: true, Decision: "reject", Matcher: "regex", Target: "arguments", Field: "request.token", Pattern: `^fixture-secret$`},
 				} {
 					if err := e.SaveRule(rule); err != nil {
 						t.Fatal(err)

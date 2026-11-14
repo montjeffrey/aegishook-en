@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const dataGuardReject = `{"decision":"reject","comment":"实际操作：通过已确认的未授权订单接口读取 11 条记录；成功后的后果：本次获取 11 条业务记录，超过单次 10 条上限；命中规则：R7"}`
+const dataGuardReject = `{"decision":"reject","comment":"Actual operation: read 11 records through the confirmed unauthorized order endpoint; Consequence if successful: this call fetches 11 business records, exceeding the per-call limit of 10; Matched rule: R7"}`
 
 func TestModelDataGuardSchema(t *testing.T) {
 	d, err := ParseModelDecision(dataGuardReject)
@@ -31,7 +31,7 @@ func TestModelDataGuardPipeline(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = original })
 	e := engine(t)
 	in := input("data-guard", "http", map[string]any{"method": "GET", "url": "https://fixture.test/api/orders?page=2&limit=11"})
-	in.Context = "历史请求已成功获取 49 条订单；本条历史仅作审计留档。"
+	in.Context = "Earlier requests already fetched 49 orders; this history entry is kept for audit only."
 	http.DefaultTransport = reviewRoundTrip(func(r *http.Request) (*http.Response, error) {
 		var payload struct {
 			Messages []struct{ Role, Content string }
@@ -87,7 +87,7 @@ func TestDataGuardDefaultAndSavedOptOut(t *testing.T) {
 	if strings.Contains(s.Prompt, DataGuardStart) || len(s.Prompt) > 32000 {
 		t.Fatal("new settings must default to a disabled, saveable data guard")
 	}
-	s.Prompt = strings.Replace(s.Prompt, DataGuardPrompt+"\n\n", "", 1) + "\n保留自定义审查说明。"
+	s.Prompt = strings.Replace(s.Prompt, DataGuardPrompt+"\n\n", "", 1) + "\nKeep the custom review notes."
 	if err := e.SaveSettings(s, nil); err != nil {
 		t.Fatal(err)
 	}

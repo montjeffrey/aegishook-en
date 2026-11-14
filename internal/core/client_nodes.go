@@ -45,23 +45,23 @@ func (e *Engine) CreateEnrollment(name string) (EnrollmentCode, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if len(name) > 120 {
-		return EnrollmentCode{}, errors.New("设备名称过长")
+		return EnrollmentCode{}, errors.New("device name is too long")
 	}
 	code := ID() + ID()
 	expires := e.clock().Add(10 * time.Minute)
 	record := enrollment{ID: credentialHash(code), Name: name, ExpiresAt: expires}
-	err := e.change("client_enrollments", record.ID, record, "client.enrollment.create", "创建十分钟有效的一次性接入码")
+	err := e.change("client_enrollments", record.ID, record, "client.enrollment.create", "created a one-time enrollment code valid for ten minutes")
 	return EnrollmentCode{Code: code, ExpiresAt: expires}, err
 }
 func (e *Engine) EnrollClient(code, platform string) (ClientConnection, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if len(code) != 64 || !hasExact(platform, "linux", "darwin", "windows") {
-		return ClientConnection{}, errors.New("接入码或平台无效")
+		return ClientConnection{}, errors.New("enrollment code or platform is invalid")
 	}
 	var record enrollment
 	if e.get("client_enrollments", credentialHash(code), &record) != nil || record.Used || !e.clock().Before(record.ExpiresAt) {
-		return ClientConnection{}, errors.New("接入码无效、已使用或已过期")
+		return ClientConnection{}, errors.New("enrollment code is invalid, already used or expired")
 	}
 	record.Used = true
 	return e.issueClientCredential("client_enrollments", record.ID, record, record.Name, platform)
@@ -82,7 +82,7 @@ func (e *Engine) issueClientCredential(kind, id string, record any, name, platfo
 	if _, err = tx.Exec("UPDATE records SET payload=? WHERE kind=? AND id=?", mustJSON(record), kind, id); err != nil {
 		return ClientConnection{}, err
 	}
-	audit := Audit{ID: ID(), Action: "client.enroll", Subject: node.ID, Detail: "设备已接入", CreatedAt: e.clock()}
+	audit := Audit{ID: ID(), Action: "client.enroll", Subject: node.ID, Detail: "device enrolled", CreatedAt: e.clock()}
 	if _, err = tx.Exec("INSERT INTO records(kind,id,payload) VALUES('audit',?,?)", audit.ID, mustJSON(audit)); err != nil {
 		return ClientConnection{}, err
 	}
@@ -122,10 +122,10 @@ func (e *Engine) RevokeClient(id string) error {
 	defer e.mu.Unlock()
 	var node storedClientNode
 	if err := e.get("client_nodes", id, &node); err != nil {
-		return errors.New("设备不存在")
+		return errors.New("device does not exist")
 	}
 	node.Revoked = true
-	return e.change("client_nodes", id, node, "client.revoke", "撤销设备接入")
+	return e.change("client_nodes", id, node, "client.revoke", "device access revoked")
 }
 func (e *Engine) ClientOwnsInstance(nodeID, instanceID string) bool {
 	var i Instance

@@ -60,7 +60,7 @@ func read(w http.ResponseWriter, r *http.Request, v any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
 	d := json.NewDecoder(r.Body)
 	if err := d.Decode(v); err != nil {
-		fail(w, 400, errors.New("JSON 请求无效或超过 2 MB"))
+		fail(w, 400, errors.New("JSON request is invalid or exceeds 2 MB"))
 		return false
 	}
 	return true
@@ -122,7 +122,7 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		if !eq(in.Token, s.AdminToken) {
-			fail(w, 401, errors.New("管理令牌无效"))
+			fail(w, 401, errors.New("admin token is invalid"))
 			return
 		}
 		token := core.ID() + core.ID()
@@ -143,7 +143,7 @@ func (s *Server) Handler() http.Handler {
 		write(w, map[string]bool{"ok": true})
 	})
 	mux.HandleFunc("GET /api/v1/me", func(w http.ResponseWriter, r *http.Request) {
-		write(w, map[string]string{"name": "管理员", "version": core.Version})
+		write(w, map[string]string{"name": "Administrator", "version": core.Version})
 	})
 	mux.HandleFunc("GET /api/v1/overview", func(w http.ResponseWriter, r *http.Request) {
 		rs, err := s.Engine.Reviews()
@@ -264,12 +264,12 @@ func (s *Server) Handler() http.Handler {
 		in.Installations = nil
 		if node, ok := requestClient(r); ok {
 			if in.NodeID != node.ID {
-				fail(w, 403, errors.New("设备身份不匹配"))
+				fail(w, 403, errors.New("device identity does not match"))
 				return
 			}
 			in.Platform = node.Platform
 		} else if in.NodeID != "" {
-			fail(w, 403, errors.New("远程节点须使用独立设备凭据"))
+			fail(w, 403, errors.New("remote nodes must use their own device credential"))
 			return
 		}
 		if in.NodeID == "" {
@@ -333,7 +333,7 @@ func (s *Server) Handler() http.Handler {
 				return
 			}
 			if r.URL.Query().Get("instanceId") != v.InstanceID {
-				fail(w, 403, errors.New("实例不匹配"))
+				fail(w, 403, errors.New("instance does not match"))
 				return
 			}
 			write(w, hookView(v))
@@ -464,7 +464,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		d := core.Evaluate(v, rules)
 		if d == nil {
-			write(w, map[string]string{"decision": "pending", "comment": "规则未定，将进入当前审查模式"})
+			write(w, map[string]string{"decision": "pending", "comment": "no rule matched; falling back to the current review mode"})
 			return
 		}
 		write(w, d)
@@ -504,7 +504,7 @@ func (s *Server) Handler() http.Handler {
 		write(w, v)
 	})
 	mux.HandleFunc("GET /api/v1/events", s.events)
-	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, errors.New("接口不存在")) })
+	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, errors.New("endpoint not found")) })
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" && r.Method != "HEAD" {
 			w.WriteHeader(405)
@@ -535,7 +535,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		public := s.publicRequest(r)
 		if !hasHost(host) && !public {
-			fail(w, 403, errors.New("仅允许本机主机名"))
+			fail(w, 403, errors.New("only local host names are allowed"))
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
@@ -547,26 +547,26 @@ func (s *Server) Handler() http.Handler {
 					scheme = "https"
 				}
 				if err != nil || u.Host != r.Host || u.Scheme != scheme || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
-					fail(w, 403, errors.New("请求来源不匹配"))
+					fail(w, 403, errors.New("request origin does not match"))
 					return
 				}
 			}
 			if (clientBootstrap(r) || (r.Header.Get("Authorization") != "" && hookAllowed(r))) && s.Engine.ClientIPBlocked(s.clientIP(r)) {
-				fail(w, 403, errors.New("此来源已被禁止接入"))
+				fail(w, 403, errors.New("this origin is blocked from connecting"))
 				return
 			}
 			if r.URL.Path != "/api/v1/login" && !clientBootstrap(r) {
 				auth := r.Header.Get("Authorization")
 				if auth != "" {
 					if !strings.HasPrefix(auth, "Bearer ") || !hookAllowed(r) {
-						fail(w, 403, errors.New("Hook 凭据无权访问此接口"))
+						fail(w, 403, errors.New("hook credential is not allowed to access this endpoint"))
 						return
 					}
 					token := strings.TrimPrefix(auth, "Bearer ")
 					if !eq(token, s.HookToken) || public {
 						node, ok := s.Engine.AuthenticateClient(token)
 						if !ok {
-							fail(w, 403, errors.New("设备凭据无效或已撤销"))
+							fail(w, 403, errors.New("device credential is invalid or revoked"))
 							return
 						}
 						r = r.WithContext(context.WithValue(r.Context(), clientContextKey{}, node))
@@ -581,7 +581,7 @@ func (s *Server) Handler() http.Handler {
 						s.mu.Unlock()
 					}
 					if !ok {
-						fail(w, 401, errors.New("请使用本机管理令牌登录"))
+						fail(w, 401, errors.New("sign in with the local admin token"))
 						return
 					}
 				}
@@ -604,7 +604,7 @@ func (s *Server) ownsInstance(w http.ResponseWriter, r *http.Request, id string)
 	}
 	node, _ := requestClient(r)
 	if !s.Engine.ClientOwnsInstance(node.ID, id) {
-		fail(w, 403, errors.New("无权操作此设备的会话或审查"))
+		fail(w, 403, errors.New("not allowed to act on this device's sessions or reviews"))
 		return false
 	}
 	return true
@@ -635,38 +635,38 @@ func reviewPageParams(q url.Values) (int, int, core.ReviewFilter, error) {
 	if value := q.Get("page"); value != "" {
 		page, err = strconv.Atoi(value)
 		if err != nil || page < 1 {
-			return 0, 0, core.ReviewFilter{}, errors.New("page 必须是正整数")
+			return 0, 0, core.ReviewFilter{}, errors.New("page must be a positive integer")
 		}
 	}
 	if value := q.Get("size"); value != "" {
 		size, err = strconv.Atoi(value)
 		if err != nil || size < 1 || size > 100 {
-			return 0, 0, core.ReviewFilter{}, errors.New("size 必须是 1 到 100")
+			return 0, 0, core.ReviewFilter{}, errors.New("size must be between 1 and 100")
 		}
 	}
 	filter := core.ReviewFilter{Query: strings.TrimSpace(q.Get("q")), Decision: q.Get("decision"), Execution: q.Get("execution"), ReviewPath: q.Get("reviewPath"), SessionID: q.Get("sessionId"), From: q.Get("from"), To: q.Get("to")}
 	if len([]rune(filter.Query)) > 200 {
-		return 0, 0, core.ReviewFilter{}, errors.New("q 不能超过 200 个字符")
+		return 0, 0, core.ReviewFilter{}, errors.New("q must not exceed 200 characters")
 	}
 	if !validReviewChoice(filter.Decision, "", "pending", "approve", "reject") {
-		return 0, 0, core.ReviewFilter{}, errors.New("decision 无效")
+		return 0, 0, core.ReviewFilter{}, errors.New("decision is invalid")
 	}
 	if !validReviewChoice(filter.Execution, "", "not_executed", "awaiting_execution", "succeeded", "failed", "unknown") {
-		return 0, 0, core.ReviewFilter{}, errors.New("execution 无效")
+		return 0, 0, core.ReviewFilter{}, errors.New("execution is invalid")
 	}
 	if !validReviewChoice(filter.ReviewPath, "", "scope", "rule", "human", "model") {
-		return 0, 0, core.ReviewFilter{}, errors.New("reviewPath 无效")
+		return 0, 0, core.ReviewFilter{}, errors.New("reviewPath is invalid")
 	}
 	for name, value := range map[string]string{"from": filter.From, "to": filter.To} {
 		if value == "" {
 			continue
 		}
 		if _, err := time.Parse("2006-01-02", value); err != nil {
-			return 0, 0, core.ReviewFilter{}, fmt.Errorf("%s 必须是 YYYY-MM-DD 日期", name)
+			return 0, 0, core.ReviewFilter{}, fmt.Errorf("%s must be a YYYY-MM-DD date", name)
 		}
 	}
 	if filter.From != "" && filter.To != "" && filter.From > filter.To {
-		return 0, 0, core.ReviewFilter{}, errors.New("from 不能晚于 to")
+		return 0, 0, core.ReviewFilter{}, errors.New("from must not be later than to")
 	}
 	return page, size, filter, nil
 }
@@ -686,7 +686,7 @@ func hookView(r core.Review) map[string]any {
 func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	f, ok := w.(http.Flusher)
 	if !ok {
-		fail(w, 500, errors.New("不支持事件流"))
+		fail(w, 500, errors.New("event streaming is not supported"))
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")

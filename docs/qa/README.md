@@ -1,48 +1,48 @@
-# 验收说明
+# Acceptance notes
 
-使用 macOS、本机 Pi 0.85.1、Go 1.23.5、Node 23.10 与 Chromium 进行隔离测试。
+Isolated testing used macOS, a local Pi 0.85.1, Go 1.23.5, Node 23.10 and Chromium.
 
-## 自动化覆盖
+## Automated coverage
 
-- 命令行：默认 `127.0.0.1:18790`、`--host/--port`、兼容 `--addr`、`localhost` 与 IPv4/IPv6 回环地址；拒绝非回环地址、非法端口、参数冲突和未知参数；`-h/--help` 显示用法、命令、选项与示例。
-- Go：R1–R6 拦截、拒绝优先、不可删除内置规则、参数绑定、并发重复审批、执行终态、超时、会话注销/失联、重启、单实例锁、安装归属与双入口、模型严格 JSON、模型配置快照、异常拒绝、脱敏、范围约束、审计失败回滚、协议请求格式、密钥回滚、Host/Origin 与管理/Hook 权限隔离、SPA 深链接。
-- Pi：真实扩展加载器、符号链接配置定位、Agent 工具循环、拒绝原因进入工具反馈、Agent 继续只读替代动作、人工暂停、运行中卸载、重载及后端离线阻断。工具执行计数器验证被拒绝工具执行次数为 0。
-- 浏览器：登录、安装、待处理、批准、拒绝、参数展开、筛选、导出、规则管理/试判、授权范围、模型连接测试/模式切换、卸载与会话状态、审计、时间线、主题持久化。检查没有页面运行时异常。
-- DashScope：OpenAI 与 Anthropic 两个实际地址，模型 qwen-flash，初始模板返回有效 A7 approve 裁决；使用用户完整原文模板复测，两种协议均返回有效 D1 approve 裁决。仅发送合成只读审查。
+- Command line: default `127.0.0.1:18790`, `--host/--port`, the compatible `--addr`, `localhost` and IPv4/IPv6 loopback addresses; rejection of non-loopback addresses, invalid ports, option conflicts and unknown options; `-h/--help` shows usage, commands, options and examples.
+- Go: R1-R6 blocking, reject precedence, built-in rules that cannot be removed, argument binding, concurrent duplicate approvals, terminal execution states, timeouts, session deregistration/lost contact, restart, single-instance lock, installation ownership and dual entries, strict model JSON, model config snapshot, reject on error, redaction, scope constraints, audit-failure rollback, protocol request format, key rollback, Host/Origin and admin/Hook permission isolation, SPA deep links.
+- Pi: real extension loader, symlink config location, Agent tool loop, rejection reason fed back into tool feedback, the Agent continuing with a read-only alternative, human pause, uninstall while running, reload and backend-offline blocking. The tool execution counter verifies that a rejected tool executed 0 times.
+- Browser: login, installation, pending, approve, reject, argument expansion, filters, export, rule management/dry run, authorization scope, model connection test/mode switch, uninstall and session status, audit, timeline, theme persistence. No page runtime exceptions were found.
+- DashScope: both real OpenAI and Anthropic addresses, model qwen-flash; the initial template returned a valid A7 approve decision; re-testing with the user's full original template returned a valid D1 approve decision on both protocols. Only synthetic read-only reviews were sent.
 
-## 视觉核对
+## Visual check
 
-界面参考保留在开发者本机。测试截图来自隔离测试记录，不是正常控制台的演示数据；截图不纳入公开仓库。使用 `AEGIS_SCREENSHOTS=/absolute/output npm run test:e2e` 可重新生成。
+UI references are kept on the developer's machine. The test screenshots come from isolated test records and are not demo data of the normal console; screenshots are not included in the public repository. Run `AEGIS_SCREENSHOTS=/absolute/output npm run test:e2e` to regenerate them.
 
-1. 浅灰侧栏与顶栏保留相同层级。紫色盾牌与钩子 SVG 标识用于加载页、登录页、侧栏和浏览器标签页；透明背景不带棋盘格，侧栏折叠和窄屏时仍保持完整。
-2. 标题、说明与右侧刷新/导出操作位置对齐；使用本机中文字体，不加载外部字体。
-3. 待处理卡片保留橙色边框、两栏布局和右侧批准/拒绝操作；详情展示实际参数。
-4. 表格采用细分隔线、工具标签、裁决颜色、展开详情和分页；已允许与执行结果分开呈现。
-5. 深色使用相同布局和 CSS 变量，按钮与文本对比度经截图检查；主题重载后保留。
-6. 在 1440、1920、1672 参考宽度及 390 窄屏验证。窄屏压缩导航并允许表格横向滚动，审批按钮保持可达。
+1. The light gray sidebar and top bar keep the same hierarchy. The purple shield-and-hook SVG mark is used on the loading page, login page, sidebar and browser tab; the transparent background has no checkerboard, and the mark stays intact when the sidebar is collapsed and on narrow screens.
+2. The title, description and the refresh/export actions on the right are aligned; local system fonts are used and no external fonts are loaded.
+3. Pending cards keep the orange border, the two-column layout and the approve/reject actions on the right; the details show the actual arguments.
+4. Tables use thin dividers, tool tags, decision colors, expandable details and pagination; Approved and the execution result are shown separately.
+5. Dark mode uses the same layout and CSS variables; button and text contrast was checked in screenshots; it is kept after the theme reloads.
+6. Verified at the 1440, 1920 and 1672 reference widths and at a 390 narrow width. On narrow screens the navigation is compressed and tables can scroll horizontally, and the approval buttons stay reachable.
 
-有意差异：移除“演示数据”按钮及虚假 Claude 会话；账号创建/删除直接拒绝，待审批采用未被规则覆盖的脚本；不显示无法证实的“Agent 已调整方案”状态。完整路径和结构化参数会让部分记录比效果图更高。
+Intentional differences: the "demo data" button and the fake Claude session were removed; account creation/deletion is rejected directly, and the pending approval uses a script not covered by rules; the unverifiable "Agent has adjusted the plan" status is not shown. Full paths and structured arguments make some records taller than in the mockups.
 
-Linux 的 Pi 生命周期现由 GitHub CI 的真实加载器与隔离工具循环覆盖。测试没有执行真实账号修改、密码修改或数据删除；Windows 实机 Hook 验收仍待完成。
+The Linux Pi lifecycle is now covered by the real loader and the isolated tool loop in GitHub CI. The tests did not perform any real account change, password change or data deletion; the Hook acceptance on a real Windows machine is still pending.
 
-## 本机地址、帮助与图标变更验证（2026-09-09）
+## Verification of the local address, help and icon changes (2026-09-09)
 
-本次在 macOS 完成本地验证，结果如下；这些结果不代表本次改动已在 Windows 实机或新的 GitHub Actions 运行中验收。
+This local verification was completed on macOS, with the results below; these results do not mean this change has been accepted on a real Windows machine or in a new GitHub Actions run.
 
-| 检查 | 结果 |
+| Check | Result |
 | --- | --- |
-| `go test -race ./...` | 通过，包含参数解析、回环地址校验、Host/Origin 与 Hook 测试 |
-| `npm --prefix web run build`、`npm run adapter:check` | 通过，前端与 Pi 适配器类型检查成功 |
-| `npm run test:adapter`、`npm run test:opencode` | 通过，Pi 加载器/工具循环与 OpenCode 回调均可连接本机服务 |
-| 命令行启动冒烟检查 | `127.0.0.1`、`localhost`、`::1` 均使用临时自定义端口完成启动、`status` 查询和 Claude Hook 事件登记；连接配置地址与启动参数一致 |
-| 帮助与错误参数冒烟检查 | 主命令及 `serve/install/uninstall/status/hook` 的帮助正常退出；帮助和非法参数不创建数据目录 |
-| SVG 资源 | 服务返回 `image/svg+xml`，页面与浏览器标签使用同一资源 |
-| `npm run test:e2e` | 2 项流程通过，覆盖登录、Agent 接入和控制台操作；已核对新图标在桌面、深浅主题与 390 像素窄屏的显示 |
+| `go test -race ./...` | Passed, including argument parsing, loopback address validation, and Host/Origin and Hook tests |
+| `npm --prefix web run build`, `npm run adapter:check` | Passed; frontend and Pi adapter type checks succeeded |
+| `npm run test:adapter`, `npm run test:opencode` | Passed; the Pi loader/tool loop and the OpenCode callback can both connect to the local service |
+| Command-line startup smoke check | `127.0.0.1`, `localhost` and `::1` each completed startup, a `status` query and Claude Hook event registration on a temporary custom port; the address in the connection config matched the startup arguments |
+| Help and invalid-argument smoke check | Help for the main command and for `serve/install/uninstall/status/hook` exits normally; help and invalid arguments do not create a data directory |
+| SVG asset | The service returns `image/svg+xml`, and the page and the browser tab use the same asset |
+| `npm run test:e2e` | 2 flows passed, covering login, Agent integration and console operations; the new icon was checked on desktop, in light and dark themes, and at a 390 px narrow width |
 
-浏览器验证使用项目现有 Playwright 和本机已安装的 Chromium。测试服务与客户端配置使用临时目录；截图保留在本机临时目录，不提交仓库。重现方式及已有 Chromium 路径配置见 [项目开发与验证说明](../../README.md#开发与验证)。
+Browser verification used the project's existing Playwright and the locally installed Chromium. The test service and client config use temporary directories; screenshots stay in a local temporary directory and are not committed to the repository. For how to reproduce and how to configure an existing Chromium path, see the [project development and verification notes](../../README.md#development-and-verification).
 
-## 发布前验证
+## Pre-release verification
 
-GitHub CI 在 Ubuntu 和 macOS 运行 Go 竞争检测、Pi 真实加载器/工具循环测试、OpenCode 回调测试；Ubuntu 额外运行浏览器端到端流程。云模型测试默认跳过，不使用任何真实密钥。发行版交叉编译覆盖 macOS AMD64/ARM64、Linux AMD64/ARM64 和 Windows AMD64；交叉编译成功不等同于 Windows 实机 Hook 验收。
+GitHub CI runs the Go race detector, the Pi real loader/tool loop tests and the OpenCode callback tests on Ubuntu and macOS; Ubuntu additionally runs the browser end-to-end flow. The cloud model test is skipped by default and uses no real key. Release cross-compilation covers macOS AMD64/ARM64, Linux AMD64/ARM64 and Windows AMD64; a successful cross-compilation is not equivalent to Hook acceptance on a real Windows machine.
 
-2026-09-09：GitHub Actions 已完成 Linux / macOS 的 Go race、适配器测试，并在 Linux Chromium 完成浏览器端到端测试。仪表盘增加审查趋势、裁决环形图、Token / 费用统计、悬浮数据、键盘日期导航，覆盖 1440 / 1920 和 390 像素视口。
+2026-09-09: GitHub Actions completed the Go race and adapter tests on Linux / macOS, and the browser end-to-end tests in Linux Chromium. The dashboard gained review trends, a decision donut chart, Token / cost statistics, hover data and keyboard date navigation, covering 1440 / 1920 and 390 px viewports.

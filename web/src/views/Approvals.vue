@@ -34,25 +34,25 @@ const isCalls = computed(() => route.path === "/calls");
 const recordsPage = reactive({ page: 1, pageSize: 10, total: 0, rows: [] as Call[] });
 const pendingPage = reactive({ page: 1, pageSize: 10, total: 0, rows: [] as Call[] });
 const tabs = [
-  ["all", "全部记录"],
-  ["reject", "已拒绝"],
-  ["approve", "已允许"],
-  ["pending", "待审批"],
+  ["all", "All records"],
+  ["reject", "Rejected"],
+  ["approve", "Approved"],
+  ["pending", "Pending approval"],
 ];
 const reviewPathOptions = [
-  ["", "全部方式"],
-  ["scope", "范围校验"],
-  ["rule", "规则审批"],
-  ["human", "人工审批"],
-  ["model", "模型审批"],
+  ["", "All methods"],
+  ["scope", "Scope check"],
+  ["rule", "Rule decision"],
+  ["human", "Human approval"],
+  ["model", "Model approval"],
 ];
 const executionOptions = [
-  ["", "全部执行"],
-  ["not_executed", "未执行"],
-  ["awaiting_execution", "等待执行"],
-  ["succeeded", "执行成功"],
-  ["failed", "执行失败"],
-  ["unknown", "执行未知"],
+  ["", "All executions"],
+  ["not_executed", "Not executed"],
+  ["awaiting_execution", "Awaiting execution"],
+  ["succeeded", "Succeeded"],
+  ["failed", "Failed"],
+  ["unknown", "Execution unknown"],
 ];
 async function decide(c: Call, d: string) {
   busy.value = c.id;
@@ -63,7 +63,7 @@ async function decide(c: Call, d: string) {
         decision: d,
         comment: d === "reject" ? reason.value : "",
       }),
-    d === "approve" ? "已允许本次调用" : "已拒绝，原因已进入 Agent 返回通道",
+    d === "approve" ? "This call was approved" : "Rejected; the reason was returned to the Agent",
   );
   if (ok) {
     rejecting.value = null;
@@ -108,19 +108,19 @@ watch(
   <div class="page-heading">
     <h1>
       <Icon :name="isCalls ? 'Workflow' : 'ClipboardList'" :size="23" />{{
-        isCalls ? "工具调用" : "审批与拦截"
+        isCalls ? "Tool calls" : "Approvals & blocks"
       }}<span v-if="store.pending.length" class="pending-count"
-        >{{ store.pending.length }} 待审批</span
+        >{{ store.pending.length }} pending approval</span
       >
     </h1>
     <button @click="store.refresh" :disabled="store.loading">
-      <Icon name="RefreshCw" :size="16" />刷新
+      <Icon name="RefreshCw" :size="16" />Refresh
     </button>
   </div>
   <section v-if="!isCalls" class="panel pending-panel">
     <div class="panel-heading">
       <strong
-        ><Icon name="ShieldAlert" :size="17" />待处理 ({{
+        ><Icon name="ShieldAlert" :size="17" />Pending ({{
           store.pending.length
         }})</strong
       >
@@ -139,12 +139,12 @@ watch(
         <thead>
           <tr>
             <th>#</th>
-            <th>工具</th>
-            <th>来源</th>
-            <th>匹配规则</th>
-            <th>参数</th>
-            <th>时间</th>
-            <th class="align-right">操作</th>
+            <th>Tool</th>
+            <th>Source</th>
+            <th>Matched rule</th>
+            <th>Arguments</th>
+            <th>Time</th>
+            <th class="align-right">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -159,8 +159,8 @@ watch(
               <td class="source-cell">
                 <strong>{{ agentName(c.agent) }}</strong
                 ><small :title="c.cwd"
-                  >项目：{{
-                    c.cwd.split(/[\\/]/).filter(Boolean).pop() || "未提供"
+                  >Project: {{
+                    c.cwd.split(/[\\/]/).filter(Boolean).pop() || "Not provided"
                   }}</small
                 ><small :title="c.sessionId">{{
                   c.sessionId.slice(0, 12)
@@ -171,9 +171,9 @@ watch(
                   ><Icon
                     :name="c.mode === 'model' ? 'Bot' : 'UserRound'"
                     :size="12"
-                  />人工审查</span
+                  />Human review</span
                 ><small :title="c.comment">{{
-                  c.comment || "未命中明确规则，等待审批"
+                  c.comment || "No explicit rule matched; waiting for approval"
                 }}</small>
               </td>
               <td>
@@ -183,7 +183,7 @@ watch(
                   @click="
                     pendingExpanded = pendingExpanded === c.id ? '' : c.id
                   "
-                  aria-label="查看待审批详情"
+                  aria-label="View pending approval details"
                 >
                   {{ JSON.stringify(c.argumentsObj) }}
                 </button>
@@ -196,13 +196,13 @@ watch(
                     :disabled="!!busy"
                     @click="decide(c, 'approve')"
                   >
-                    <Icon name="Check" :size="15" />允许本次</button
+                    <Icon name="Check" :size="15" />Allow this call</button
                   ><button
                     class="danger-button"
                     :disabled="!!busy"
                     @click="rejecting = c"
                   >
-                    <Icon name="X" :size="15" />拒绝
+                    <Icon name="X" :size="15" />Reject
                   </button>
                 </div>
               </td>
@@ -212,7 +212,7 @@ watch(
             </tr>
           </template>
           <tr v-if="!store.pending.length">
-            <td colspan="7" class="empty-cell">暂无待审批操作</td>
+            <td colspan="7" class="empty-cell">No pending approvals</td>
           </tr>
         </tbody>
       </table>
@@ -221,43 +221,43 @@ watch(
       v-model:page="pendingPage.page"
       v-model:page-size="pendingPage.pageSize"
       :total="pendingPage.total"
-      label="待处理"
+      label="Pending"
     />
   </section>
   <section class="panel records">
     <div class="records-heading">
-      <h2>全部记录 ({{ recordsPage.total }})</h2>
+      <h2>All records ({{ recordsPage.total }})</h2>
       <div class="record-filters">
         <div class="search-input">
           <Icon name="Search" :size="15" /><input
             v-model="search"
-            placeholder="搜索操作或规则"
-            aria-label="搜索操作或规则"
+            placeholder="Search operations or rules"
+            aria-label="Search operations or rules"
           />
         </div>
         <AppSelect
           v-model="tab"
-          label="筛选裁决"
+          label="Filter by decision"
           :options="tabs.map((t) => ({ value: t[0]!, label: t[1]! }))"
         />
         <AppSelect
           v-model="reviewPath"
-          label="筛选审批方式"
+          label="Filter by approval method"
           :options="reviewPathOptions.map((t) => ({ value: t[0]!, label: t[1]! }))"
         />
         <AppSelect
           v-model="execution"
-          label="筛选执行状态"
+          label="Filter by execution status"
           :options="executionOptions.map((t) => ({ value: t[0]!, label: t[1]! }))"
         />
-        <AppDatePicker v-model="from" label="开始日期" prefix="从" />
-        <AppDatePicker v-model="to" label="结束日期" prefix="至" />
+        <AppDatePicker v-model="from" label="Start date" prefix="From" />
+        <AppDatePicker v-model="to" label="End date" prefix="To" />
         <a
           class="icon-button"
           href="/api/v1/calls/export"
           download
-          aria-label="导出记录"
-          title="导出记录"
+          aria-label="Export records"
+          title="Export records"
           ><Icon name="Download" :size="17"
         /></a>
       </div>
@@ -278,14 +278,14 @@ watch(
         <thead>
           <tr>
             <th>#</th>
-            <th>工具</th>
-            <th>来源</th>
-            <th>匹配规则</th>
-            <th>参数</th>
-            <th>状态</th>
-            <th>申请时间</th>
-            <th>决定时间</th>
-            <th><span class="sr-only">操作</span></th>
+            <th>Tool</th>
+            <th>Source</th>
+            <th>Matched rule</th>
+            <th>Arguments</th>
+            <th>Status</th>
+            <th>Requested</th>
+            <th>Decided</th>
+            <th><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -302,8 +302,8 @@ watch(
               <td class="source-cell">
                 <strong>{{ agentName(c.agent) }}</strong
                 ><small :title="c.cwd"
-                  >项目：{{
-                    c.cwd.split(/[\\/]/).filter(Boolean).pop() || "未提供"
+                  >Project: {{
+                    c.cwd.split(/[\\/]/).filter(Boolean).pop() || "Not provided"
                   }}</small
                 ><small :title="c.sessionId">{{
                   c.sessionId.slice(0, 12)
@@ -311,14 +311,14 @@ watch(
               </td>
               <td class="reason-cell">
                 <span v-if="c.reviewPath === 'model'" class="badge model"
-                  ><Icon name="Bot" :size="12" />{{ "模型判定" }}</span
+                  ><Icon name="Bot" :size="12" />{{ "Model decision" }}</span
                 ><strong v-else>{{
                   matchedRuleName(c) || reviewPathLabel(c)
                 }}</strong
-                ><small v-if="c.reviewPath === 'rule'">规则直接裁决</small
+                ><small v-if="c.reviewPath === 'rule'">Decided directly by rule</small
                 ><small :title="c.comment">{{
                   c.comment ||
-                  (c.mode === "model" ? "模型审查中" : "等待人工决策")
+                  (c.mode === "model" ? "Model review in progress" : "Waiting for a human decision")
                 }}</small>
               </td>
               <td>
@@ -326,7 +326,7 @@ watch(
                   class="parameter-preview"
                   :title="JSON.stringify(c.argumentsObj)"
                   @click="expanded = expanded === c.id ? '' : c.id"
-                  aria-label="查看参数"
+                  aria-label="View arguments"
                 >
                   {{ JSON.stringify(c.argumentsObj) }}
                 </button>
@@ -334,7 +334,7 @@ watch(
               <td>
                 <span class="badge" :class="c.decision">{{
                   c.decision === "pending" && c.mode === "model"
-                    ? "模型审查中"
+                    ? "Model review in progress"
                     : decisionLabel(c.decision)
                 }}</span>
               </td>
@@ -344,7 +344,7 @@ watch(
                 <button
                   class="icon-button detail-toggle"
                   @click="expanded = expanded === c.id ? '' : c.id"
-                  :aria-label="expanded === c.id ? '收起详情' : '查看详情'"
+                  :aria-label="expanded === c.id ? 'Hide details' : 'View details'"
                 >
                   <Icon
                     :name="expanded === c.id ? 'ChevronUp' : 'ChevronRight'"
@@ -360,7 +360,7 @@ watch(
           <tr v-if="!recordsPage.rows.length">
             <td colspan="9" class="empty-cell">
               {{
-                recordsPage.total ? "没有符合条件的记录" : "暂无工具调用记录"
+                recordsPage.total ? "No matching records" : "No tool call records"
               }}
             </td>
           </tr>
@@ -371,34 +371,34 @@ watch(
       v-model:page="recordsPage.page"
       v-model:page-size="recordsPage.pageSize"
       :total="recordsPage.total"
-      :label="isCalls ? '工具调用' : '审批记录'"
+      :label="isCalls ? 'Tool calls' : 'Approval records'"
     />
   </section>
   <div v-if="rejecting" class="modal-backdrop" @click.self="rejecting = null">
     <form class="modal" @submit.prevent="decide(rejecting!, 'reject')">
       <div class="panel-heading">
-        <h2>拒绝本次调用</h2>
+        <h2>Reject this call</h2>
         <button
           type="button"
           class="icon-button"
           @click="rejecting = null"
-          aria-label="关闭"
+          aria-label="Close"
         >
           <Icon name="X" />
         </button>
       </div>
-      <p class="muted">原因将返回 Agent，帮助它调整后续行动。</p>
+      <p class="muted">The reason is returned to the Agent to help it adjust its next steps.</p>
       <label
-        >拒绝原因<textarea
+        >Rejection reason<textarea
           v-model="reason"
           required
           rows="4"
-          placeholder="说明此操作为什么不允许，以及可行的替代方式"
+          placeholder="Explain why this operation is not allowed and suggest a workable alternative"
         />
       </label>
       <div class="actions end">
-        <button type="button" @click="rejecting = null">取消</button
-        ><button class="danger-button" :disabled="!!busy">确认拒绝</button>
+        <button type="button" @click="rejecting = null">Cancel</button
+        ><button class="danger-button" :disabled="!!busy">Confirm rejection</button>
       </div>
     </form>
   </div>

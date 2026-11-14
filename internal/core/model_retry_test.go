@@ -99,7 +99,7 @@ func TestModelJSONRetry(t *testing.T) {
 					if calls > 0 {
 						last := messages[len(messages)-1]
 						previous := messages[len(messages)-2]
-						if last.Role != "user" || !strings.Contains(last.Content, "JSON 格式校验失败：") || previous.Role != "assistant" || previous.Content == "" {
+						if last.Role != "user" || !strings.Contains(last.Content, "failed JSON format validation: ") || previous.Role != "assistant" || previous.Content == "" {
 							t.Fatal("missing correction feedback/history")
 						}
 						_, parseErr := ParseModelDecision(tc.replies[min(calls-1, len(tc.replies)-1)])
@@ -118,7 +118,7 @@ func TestModelJSONRetry(t *testing.T) {
 				if calls != tc.wantCalls || decision.Decision != tc.wantDecision || (err == nil) != (tc.wantDecision != "") {
 					t.Fatalf("calls=%d decision=%+v err=%v", calls, decision, err)
 				}
-				if tc.name == "exhausted" && !strings.Contains(err.Error(), "重试 3 次") {
+				if tc.name == "exhausted" && !strings.Contains(err.Error(), "retried 3 times") {
 					t.Fatal(err)
 				}
 				if usage == nil || usage.Input != int64(calls*80) || usage.Output != int64(calls*5) || usage.CacheRead != int64(calls*20) {

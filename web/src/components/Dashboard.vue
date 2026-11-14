@@ -43,7 +43,7 @@ const records = computed(() =>
   ),
 );
 const models = computed(() => [
-  { value: "", label: "全部审查模型" },
+  { value: "", label: "All review models" },
   ...Array.from(new Set(store.usage.map((u) => `${u.protocol}:${u.model}`)))
     .sort()
     .map((v) => ({ value: v, label: v })),
@@ -132,10 +132,10 @@ const points = computed(() =>
   }),
 );
 const tokenSeries = [
-  { key: "input", label: "输入（未缓存）", color: "#3b82f6" },
-  { key: "cacheRead", label: "缓存读取", color: "#20b486" },
-  { key: "cacheWrite", label: "缓存写入", color: "#e6a236" },
-  { key: "output", label: "输出", color: "#8b5cf6" },
+  { key: "input", label: "Input (uncached)", color: "#3b82f6" },
+  { key: "cacheRead", label: "Cache read", color: "#20b486" },
+  { key: "cacheWrite", label: "Cache write", color: "#e6a236" },
+  { key: "output", label: "Output", color: "#8b5cf6" },
 ];
 const recent = computed(() =>
   calls.value.filter((c) => c.decision === "reject").slice(0, 5),
@@ -146,11 +146,11 @@ const recent = computed(() =>
     <div class="dashboard-toolbar">
       <span class="muted tiny"
         ><i class="dot" :class="{ green: store.streamOnline }" />{{
-          store.streamOnline ? "实时更新" : "连接中断 · 显示上次数据"
+          store.streamOnline ? "Live updates" : "Disconnected · showing last data"
         }}
-        · {{ date(store.updatedAt) }} · 本地时区</span
+        · {{ date(store.updatedAt) }} · local time zone</span
       >
-      <div class="segmented" aria-label="统计时间范围">
+      <div class="segmented" aria-label="Statistics time range">
         <button
           v-for="n in [7, 30, 90]"
           :key="n"
@@ -158,22 +158,22 @@ const recent = computed(() =>
           :class="{ active: days === n }"
           @click="router.replace({ query: { ...route.query, days: n } })"
         >
-          {{ n }} 天
+          {{ n }} days
         </button>
       </div>
     </div>
     <div class="dashboard-metrics">
       <article class="panel metric-card">
-        <span><Icon name="Activity" />工具调用</span
+        <span><Icon name="Activity" />Tool calls</span
         ><strong>{{ fmt(calls.length) }}</strong
         ><small
-          >近 {{ days }} 天 ·
+          >Last {{ days }} days ·
           {{ calls.filter((c) => c.execution === "succeeded").length }}
-          次执行成功</small
+          succeeded</small
         >
       </article>
       <article class="panel metric-card">
-        <span><Icon name="ShieldX" />已拦截</span
+        <span><Icon name="ShieldX" />Blocked</span
         ><strong class="reject">{{
           fmt(calls.filter((c) => c.decision === "reject").length)
         }}</strong
@@ -181,67 +181,67 @@ const recent = computed(() =>
           >{{
             calls.filter((c) => c.decision === "approve").length
           }}
-          次已允许</small
+          approved</small
         >
       </article>
       <article class="panel metric-card">
-        <span><Icon name="Clock3" />当前待审查</span
+        <span><Icon name="Clock3" />Pending review</span
         ><strong class="pending">{{
           store.calls.filter((c) => c.decision === "pending").length
         }}</strong
         ><small>{{ store.sessionSummary }}</small>
       </article>
       <article class="panel metric-card">
-        <span><Icon name="Bot" />审查 Token</span
+        <span><Icon name="Bot" />Review tokens</span
         ><strong>{{ known.length ? compact(totalTokens) : "—" }}</strong
-        ><small>{{ known.length }} / {{ records.length }} 次请求有用量</small>
+        ><small>{{ known.length }} / {{ records.length }} requests with usage</small>
       </article>
       <article class="panel metric-card">
-        <span><Icon name="Circle" />估算费用 · {{ currency }}</span
+        <span><Icon name="Circle" />Estimated cost · {{ currency }}</span
         ><strong class="cost-number">{{
           priced.length ? money(cost) : "—"
         }}</strong
         ><small
-          >{{ priced.length }} 次已计价 ·
-          <router-link to="/settings">配置单价</router-link></small
+          >{{ priced.length }} priced ·
+          <router-link to="/settings">Set pricing</router-link></small
         >
       </article>
     </div>
     <div class="dashboard-charts review-charts">
       <section class="panel">
         <div class="panel-heading">
-          <strong><Icon name="Activity" />工具审批趋势</strong
-          ><span class="muted tiny">按提交日期 · 当前裁决</span>
+          <strong><Icon name="Activity" />Tool approval trend</strong
+          ><span class="muted tiny">By submission date · current decision</span>
         </div>
         <TrendChart
-          title="工具审批趋势"
+          title="Tool approval trend"
           :points="points"
           :series="[
-            { key: 'approve', label: '允许', color: '#20b486' },
-            { key: 'reject', label: '拦截', color: '#f05265' },
-            { key: 'pending', label: '待审查', color: '#e6a236' },
+            { key: 'approve', label: 'Approved', color: '#20b486' },
+            { key: 'reject', label: 'Blocked', color: '#f05265' },
+            { key: 'pending', label: 'Pending review', color: '#e6a236' },
           ]"
-          unit="次"
+          unit="calls"
         />
       </section>
       <section class="panel decision-panel">
         <div class="panel-heading">
-          <strong><Icon name="ShieldCheck" />裁决分布</strong
-          ><span class="muted tiny">近 {{ days }} 天 · 数量与占比</span>
+          <strong><Icon name="ShieldCheck" />Decision breakdown</strong
+          ><span class="muted tiny">Last {{ days }} days · count and share</span>
         </div>
         <DecisionDonut :calls="calls" />
       </section>
     </div>
     <section class="panel usage-panel">
       <div class="panel-heading">
-        <strong><Icon name="Bot" />审查模型 Token 消耗</strong
-        ><AppSelect v-model="model" label="统计模型" :options="models" />
+        <strong><Icon name="Bot" />Review model token usage</strong
+        ><AppSelect v-model="model" label="Statistics model" :options="models" />
       </div>
       <div class="usage-layout">
         <div class="usage-summary">
-          <span class="muted">合计（输入 + 输出）</span
+          <span class="muted">Total (input + output)</span
           ><strong>{{ known.length ? compact(totalTokens) : "—" }}</strong
-          ><small class="muted">含连接测试 · 不含 Agent 自身用量</small>
+          ><small class="muted">Includes connection tests · excludes the Agent's own usage</small>
           <div v-for="s in tokenSeries" :key="s.key" class="token-breakdown">
             <div>
               <span>{{ s.label }}</span
@@ -263,15 +263,15 @@ const recent = computed(() =>
             </div>
           </div>
           <div class="cache-rate">
-            <span>输入缓存命中率</span><b>{{ cacheRate }}</b>
+            <span>Input cache hit rate</span><b>{{ cacheRate }}</b>
           </div>
         </div>
         <div class="usage-chart">
           <div v-if="!known.length" class="chart-notice">
-            暂无可用的 Token 记录，后续模型请求返回 usage 后开始统计。
+            No token records yet; counting starts once model requests return usage.
           </div>
           <TrendChart
-            title="审查 Token 趋势"
+            title="Review token trend"
             :points="points"
             :series="tokenSeries"
             unit="Token"
@@ -279,44 +279,44 @@ const recent = computed(() =>
         </div>
       </div>
       <div class="dashboard-footnote">
-        {{ missing }} 次请求用量未知 ·
-        {{ legacy }} 次历史审查未采集；未知数据不按 0
-        费用计算。用量统计从本次升级后开始。
+        {{ missing }} requests with unknown usage ·
+        {{ legacy }} historical reviews not captured; unknown data is not
+        counted as 0 in cost calculations. Usage statistics start from this upgrade.
       </div>
     </section>
     <section class="panel">
       <div class="panel-heading">
-        <strong><Icon name="Activity" />费用趋势</strong
+        <strong><Icon name="Activity" />Cost trend</strong
         ><AppSelect
           v-model="currency"
-          label="统计币种"
+          label="Currency"
           :options="[
-            { value: 'CNY', label: 'CNY 人民币' },
-            { value: 'USD', label: 'USD 美元' },
+            { value: 'CNY', label: 'CNY (yuan)' },
+            { value: 'USD', label: 'USD (dollar)' },
           ]"
         />
       </div>
       <TrendChart
-        title="费用趋势"
+        title="Cost trend"
         :points="points"
-        :series="[{ key: 'cost', label: '已计价费用', color: '#8b5cf6' }]"
+        :series="[{ key: 'cost', label: 'Priced cost', color: '#8b5cf6' }]"
         kind="line"
         :unit="currency"
       />
       <div class="dashboard-footnote">
         {{ records.filter((r) => r.cost === null).length }}
-        次未计价；存在未知费用的日期留空。币种分别统计，不作汇率换算。
+        not priced; days with unknown cost are left blank. Currencies are counted separately, with no exchange-rate conversion.
       </div>
     </section>
     <section class="panel recent-blocks">
       <div class="panel-heading">
-        <strong><Icon name="ShieldAlert" />近期拦截</strong
+        <strong><Icon name="ShieldAlert" />Recent blocks</strong
         ><router-link class="text-button" to="/approvals"
-          >查看记录<Icon name="ArrowRight" :size="14"
+          >View records<Icon name="ArrowRight" :size="14"
         /></router-link>
       </div>
       <div v-if="!recent.length" class="dashboard-empty">
-        所选时间范围内暂无拦截记录
+        No blocked calls in the selected time range
       </div>
       <div v-for="c in recent" :key="c.id" class="recent-block">
         <code class="tool-tag">{{ c.toolName }}</code>

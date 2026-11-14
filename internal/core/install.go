@@ -35,26 +35,26 @@ func (e *Engine) Install(scope, project, agentDir string) (Installation, error) 
 	defer e.mu.Unlock()
 	var out Installation
 	if scope != "global" && scope != "project" {
-		return out, errors.New("安装范围必须是 global 或 project")
+		return out, errors.New("install scope must be global or project")
 	}
 	base := agentDir
 	if scope == "project" {
 		if !filepath.IsAbs(project) {
-			return out, errors.New("项目须使用绝对路径")
+			return out, errors.New("project must use an absolute path")
 		}
 		real, err := filepath.EvalSymlinks(project)
 		if err != nil {
-			return out, errors.New("项目目录不存在")
+			return out, errors.New("project directory does not exist")
 		}
 		stat, err := os.Stat(real)
 		if err != nil || !stat.IsDir() {
-			return out, errors.New("项目须为目录")
+			return out, errors.New("project must be a directory")
 		}
 		project = real
 		base = filepath.Join(project, ".pi")
 	}
 	if !filepath.IsAbs(base) {
-		return out, errors.New("Pi 扩展目录须为绝对路径")
+		return out, errors.New("Pi extension directory must be an absolute path")
 	}
 	dir := filepath.Join(base, "extensions")
 	if err := os.MkdirAll(dir, 0700); err != nil {
@@ -63,13 +63,13 @@ func (e *Engine) Install(scope, project, agentDir string) (Installation, error) 
 	entry := filepath.Join(dir, "aegishook.ts")
 	target := filepath.Join(e.Dir, "adapter", "index.ts")
 	if _, err := os.Stat(target); err != nil {
-		return out, errors.New("适配器资源未准备好，请先启动服务")
+		return out, errors.New("adapter resources are not ready; start the service first")
 	}
 	exists := false
 	if _, err := os.Lstat(entry); err == nil {
 		link, err := os.Readlink(entry)
 		if err != nil || link != target {
-			return out, errors.New("同名入口不属于 AegisHook，拒绝覆盖")
+			return out, errors.New("an entry with the same name is not owned by AegisHook; refusing to overwrite")
 		}
 		exists = true
 	} else if !os.IsNotExist(err) {
@@ -118,18 +118,18 @@ func (e *Engine) Uninstall(id string) error {
 	removed := false
 	if err == nil {
 		if link != target {
-			return errors.New("入口归属已变化，拒绝删除")
+			return errors.New("entry ownership changed; refusing to delete")
 		}
 		if err = os.Remove(i.Entry); err != nil {
 			return err
 		}
 		removed = true
 	} else if !os.IsNotExist(err) {
-		return errors.New("入口不是 AegisHook 符号链接，拒绝删除")
+		return errors.New("entry is not an AegisHook symlink; refusing to delete")
 	}
 	i.Installed = false
 	i.Status = "uninstalled"
-	if err = e.change("installations", i.ID, i, "hook.uninstall", i.Entry+"；已加载会话需重载后退出保护"); err != nil {
+	if err = e.change("installations", i.ID, i, "hook.uninstall", i.Entry+"; loaded sessions must reload to leave protection"); err != nil {
 		if removed {
 			os.Symlink(target, i.Entry)
 		}

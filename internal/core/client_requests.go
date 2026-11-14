@@ -44,7 +44,7 @@ func (e *Engine) ClientIPBlocks() ([]ClientIPBlock, error) {
 func (e *Engine) UnblockClientIP(id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.change("client_ip_blocks", id, nil, "client.ip.unblock", "解除来源 IP 黑名单")
+	return e.change("client_ip_blocks", id, nil, "client.ip.unblock", "removed source IP from the blocklist")
 }
 func (e *Engine) ClientRequests() ([]ClientRequest, error) {
 	records, err := list[storedClientRequest](e, "client_requests")
@@ -61,13 +61,13 @@ func (e *Engine) CreateClientRequest(name, platform, ip string) (ClientRequestTi
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if len(name) == 0 || len(name) > 120 || !hasExact(platform, "linux", "darwin", "windows") {
-		return ClientRequestTicket{}, errors.New("设备名称或平台无效")
+		return ClientRequestTicket{}, errors.New("device name or platform is invalid")
 	}
 	if _, err := netip.ParseAddr(ip); err != nil {
-		return ClientRequestTicket{}, errors.New("无法识别请求来源")
+		return ClientRequestTicket{}, errors.New("cannot identify the request origin")
 	}
 	if e.ClientIPBlocked(ip) {
-		return ClientRequestTicket{}, errors.New("此来源已被禁止接入")
+		return ClientRequestTicket{}, errors.New("this origin is blocked from connecting")
 	}
 	records, err := e.ClientRequests()
 	if err != nil {
@@ -83,12 +83,12 @@ func (e *Engine) CreateClientRequest(name, platform, ip string) (ClientRequestTi
 		}
 	}
 	if count >= 5 || total >= 256 {
-		return ClientRequestTicket{}, errors.New("接入申请过多，请稍后再试")
+		return ClientRequestTicket{}, errors.New("too many enrollment requests; try again later")
 	}
 	id, secret := ID(), ID()+ID()
 	expires := e.clock().Add(10 * time.Minute)
 	r := storedClientRequest{ClientRequest: ClientRequest{ID: id, Name: name, Platform: platform, IP: ip, State: "pending", CreatedAt: e.clock(), ExpiresAt: expires}, SecretHash: credentialHash(secret)}
-	if err = e.change("client_requests", id, r, "client.request", "收到设备接入申请"); err != nil {
+	if err = e.change("client_requests", id, r, "client.request", "device enrollment request received"); err != nil {
 		return ClientRequestTicket{}, err
 	}
 	return ClientRequestTicket{ID: id, Secret: secret, ExpiresAt: expires}, nil
@@ -98,39 +98,39 @@ func (e *Engine) DecideClientRequest(id, decision string) error {
 	defer e.mu.Unlock()
 	var r storedClientRequest
 	if err := e.get("client_requests", id, &r); err != nil {
-		return errors.New("接入申请不存在")
+		return errors.New("enrollment request does not exist")
 	}
 	if r.State != "pending" || !e.clock().Before(r.ExpiresAt) {
-		return errors.New("申请已处理或已过期")
+		return errors.New("request was already handled or has expired")
 	}
 	switch decision {
 	case "approve":
 		if e.ClientIPBlocked(r.IP) {
-			return errors.New("此来源已被拉黑，请先解除黑名单")
+			return errors.New("this origin is blocklisted; remove it from the blocklist first")
 		}
 		r.State = "approved"
 	case "reject":
 		r.State = "rejected"
 	case "block_ip":
 		block := ClientIPBlock{ID: credentialHash(r.IP), IP: r.IP, CreatedAt: e.clock()}
-		if err := e.change("client_ip_blocks", block.ID, block, "client.ip.block", "禁止来源 IP 接入"); err != nil {
+		if err := e.change("client_ip_blocks", block.ID, block, "client.ip.block", "blocked source IP from connecting"); err != nil {
 			return err
 		}
 		r.State = "rejected"
 	default:
-		return errors.New("仅支持 approve、reject、block_ip")
+		return errors.New("only approve, reject and block_ip are supported")
 	}
-	return e.change("client_requests", id, r, "client.request."+decision, "处理设备接入申请")
+	return e.change("client_requests", id, r, "client.request."+decision, "handled device enrollment request")
 }
 func (e *Engine) PollClientRequest(id, secret, ip string) (ClientRequestResult, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	var r storedClientRequest
 	if len(secret) != 64 || e.get("client_requests", id, &r) != nil || credentialHash(secret) != r.SecretHash {
-		return ClientRequestResult{}, errors.New("申请凭据无效")
+		return ClientRequestResult{}, errors.New("request credential is invalid")
 	}
 	if e.ClientIPBlocked(ip) || e.ClientIPBlocked(r.IP) {
-		return ClientRequestResult{}, errors.New("此来源已被禁止接入")
+		return ClientRequestResult{}, errors.New("this origin is blocked from connecting")
 	}
 	if !e.clock().Before(r.ExpiresAt) {
 		return ClientRequestResult{State: "expired"}, nil

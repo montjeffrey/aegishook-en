@@ -25,46 +25,46 @@ func builtinSemantics(id string) *RuleSemantics {
 	switch id {
 	case "R1":
 		return &RuleSemantics{
-			Summary:  "识别密码修改命令，以及密码或登录状态修改接口。",
-			Checks:   []string{"工具名包含 reset_password、change_password、set_password 或 logout_user。", "带有 method 的非 GET / HEAD 请求，url 路径含 /password、/reset-password 或 /logout 段。", "Shell 中识别 passwd、chpasswd、Set-LocalUser 命令，支持字面量命令路径和简单 sudo 包装。"},
+			Summary:  "Detects password-change commands and APIs that change passwords or login state.",
+			Checks:   []string{"The tool name contains reset_password, change_password, set_password or logout_user.", "A non-GET / HEAD request with a method whose url path has a /password, /reset-password or /logout segment.", "In shell, detects the passwd, chpasswd and Set-LocalUser commands, with literal command paths and simple sudo wrappers."},
 			Examples: []SemanticExample{shellExample("passwd fixture"), {Tool: "change_password", Arguments: map[string]any{"user": "fixture"}}},
-			Limits:   "只识别上述名称和参数模式，不会判断账号是否属于测试账号；动态包装脚本不保证识别；PowerShell 仅检查可解析的字面量命令，不解释变量或脚本内部行为。"}
+			Limits:   "Only the names and argument patterns above are recognized, and it does not judge whether the account is a test account; dynamic wrapper scripts are not guaranteed to be recognized; PowerShell is checked only for parseable literal commands, without interpreting variables or script internals."}
 	case "R2":
 		return &RuleSemantics{
-			Summary:  "识别受保护配置路径的写入、计划任务和防火墙改动。",
-			Checks:   []string{"write / edit（不区分大小写）的 path / file_path / filePath，或 Shell 输出重定向，指向 /etc、/private/etc/、/Library/Launch*、/System/、Windows 盘符下的 Windows 目录等受保护路径；文件工具使用项目路径解析并处理已有符号链接。", "还识别 Set-Service、Set-NetFirewallProfile、New/Remove-NetFirewallRule 和 Register/Unregister/Set-ScheduledTask 等明确命令。", "crontab 的参数不是单独 -l 或 --list。", "iptables、nft、ufw、firewall-cmd，参数未出现 --list、--status、-l 或 status 标识。"},
+			Summary:  "Detects writes to protected configuration paths, and scheduled task and firewall changes.",
+			Checks:   []string{"The path / file_path / filePath of write / edit (case-insensitive), or shell output redirection, pointing to protected paths such as /etc, /private/etc/, /Library/Launch*, /System/ and the Windows directory on a drive letter; file tools resolve against the project path and handle existing symlinks.", "Also detects explicit commands such as Set-Service, Set-NetFirewallProfile, New/Remove-NetFirewallRule and Register/Unregister/Set-ScheduledTask.", "crontab with arguments other than a lone -l or --list.", "iptables, nft, ufw or firewall-cmd without --list, --status, -l or status in the arguments."},
 			Examples: []SemanticExample{shellExample("echo fixture > /etc/aegis-fixture.conf"), shellExample("crontab fixture.txt")},
-			Limits:   "防火墙检查使用参数文本，不能证明所有列举操作或未知子命令安全；不自动分析其它配置管理程序。"}
+			Limits:   "Firewall checks use the argument text and cannot prove that every listing operation or unknown subcommand is safe; other configuration management programs are not analyzed automatically."}
 	case "R3":
 		return &RuleSemantics{
-			Summary:  "识别账号、用户组、角色和权限的创建、修改或删除。",
-			Checks:   []string{"工具名包含 create_user、delete_user、update_user、create_role、delete_role 或 grant_permission。", "非 GET / HEAD 请求的 url 路径含 /users、/accounts、/roles 或 /permissions 段。", "Shell 中的 useradd、userdel、usermod、adduser、deluser、groupadd、groupdel、groupmod、dscl。", "Windows 的 New/Remove/Rename/Enable/Disable-LocalUser、New/Remove-LocalGroup 和 Add/Remove-LocalGroupMember。", "mysql、psql、sqlite、sqlcmd 类命令中出现 CREATE / ALTER / DROP USER 或 ROLE、GRANT 或 REVOKE。"},
+			Summary:  "Detects creating, changing or deleting accounts, user groups, roles and permissions.",
+			Checks:   []string{"The tool name contains create_user, delete_user, update_user, create_role, delete_role or grant_permission.", "A non-GET / HEAD request whose url path has a /users, /accounts, /roles or /permissions segment.", "In shell: useradd, userdel, usermod, adduser, deluser, groupadd, groupdel, groupmod, dscl.", "Windows New/Remove/Rename/Enable/Disable-LocalUser, New/Remove-LocalGroup and Add/Remove-LocalGroupMember.", "CREATE / ALTER / DROP USER or ROLE, GRANT or REVOKE in mysql, psql, sqlite or sqlcmd commands."},
 			Examples: []SemanticExample{shellExample("userdel fixture"), {Tool: "create_user", Arguments: map[string]any{"name": "fixture"}}},
-			Limits:   "当前按命令和接口名称匹配，测试账号也会命中；dscl 的只读用法也可能命中。"}
+			Limits:   "Matching is currently by command and API name, so test accounts also match; read-only use of dscl may match too."}
 	case "R4":
 		return &RuleSemantics{
-			Summary:  "识别重要路径删除、磁盘覆盖以及数据库对象或全表删除。",
-			Checks:   []string{"rm、rmdir、shred 的参数为根目录、~、$HOME，或包含 /etc、/var/lib、/home、/Users、/var/www 路径文本。", "mkfs、mkfs.ext4、mkfs.xfs，或 dd 参数含 of=/dev/。", "mysql、psql、sqlite、sqlcmd 类命令中识别 DROP TABLE / DATABASE、TRUNCATE 和简单的无条件 DELETE FROM。", "工具名含 sql、database 或 query 时，检查参数文本中的 DROP TABLE / DATABASE 和 TRUNCATE。"},
+			Summary:  "Detects deletion of important paths, disk overwrites, and deletion of database objects or whole tables.",
+			Checks:   []string{"rm, rmdir or shred with an argument that is the root directory, ~ or $HOME, or contains the path text /etc, /var/lib, /home, /Users or /var/www.", "mkfs, mkfs.ext4, mkfs.xfs, or dd with an argument containing of=/dev/.", "In mysql, psql, sqlite or sqlcmd commands, detects DROP TABLE / DATABASE, TRUNCATE and simple unconditional DELETE FROM.", "When the tool name contains sql, database or query, checks the argument text for DROP TABLE / DATABASE and TRUNCATE."},
 			Examples: []SemanticExample{shellExample("rm -rf /var/www/fixture"), shellExample("mysql -e 'DROP TABLE fixture'")},
-			Limits:   "不区分生产表与临时表，备份名称也会命中；当前不覆盖所有 SQL 语法、业务 DELETE 接口或 UPDATE 改写。"}
+			Limits:   "Does not distinguish production tables from temporary ones, and backup names also match; does not currently cover all SQL syntax, business DELETE APIs or UPDATE rewrites."}
 	case "R5":
 		return &RuleSemantics{
-			Summary:  "识别系统关机、进程终止以及服务停止或重启。",
-			Checks:   []string{"Shell 命令为 shutdown、reboot、halt、poweroff、killall 或 pkill，以及 Stop/Restart-Service、Stop-Process、Stop/Restart-Computer。", "systemctl、service、launchctl 的参数包含 stop、restart、disable、unload 或 bootout 单词。"},
+			Summary:  "Detects system shutdown, process termination and service stop or restart.",
+			Checks:   []string{"Shell commands shutdown, reboot, halt, poweroff, killall or pkill, and Stop/Restart-Service, Stop-Process and Stop/Restart-Computer.", "systemctl, service or launchctl with the word stop, restart, disable, unload or bootout in the arguments."},
 			Examples: []SemanticExample{shellExample("systemctl restart fixture"), shellExample("pkill fixture")},
-			Limits:   "不识别进程是否承担真实业务；pkill / killall 按命令直接匹配，普通 kill 和其它服务管理器不在当前检测列表。"}
+			Limits:   "Does not tell whether a process serves real business; pkill / killall match directly by command, while plain kill and other service managers are not in the current detection list."}
 	case "R6":
 		return &RuleSemantics{
-			Summary:  "识别 hping3 的显式洪泛参数。",
-			Checks:   []string{"Shell 中的 hping3 命令，参数包含 --flood。"},
+			Summary:  "Detects the explicit flood argument of hping3.",
+			Checks:   []string{"A hping3 command in shell with --flood in the arguments."},
 			Examples: []SemanticExample{shellExample("hping3 --flood example.test")},
-			Limits:   "当前仅覆盖上述显式模式，不计算并发、速率或持续时间；其它压测工具及动态循环交由当前审查模式处理。"}
+			Limits:   "Currently covers only the explicit pattern above and does not compute concurrency, rate or duration; other load-testing tools and dynamic loops are handled by the current review mode."}
 	case "A7":
 		return &RuleSemantics{
-			Summary:  "按工具名匹配文件读取、搜索和目录查询。",
-			Checks:   []string{"工具名精确等于 read、grep、find、ls 或 glob（不区分大小写）。", "只有未命中任何启用的拒绝规则，才使用本条规则的裁决；授权范围检查仍先执行。"},
+			Summary:  "Matches file reads, searches and directory queries by tool name.",
+			Checks:   []string{"The tool name is exactly read, grep, find, ls or glob (case-insensitive).", "This rule's decision is used only when no enabled reject rule matches; the authorization scope check still runs first."},
 			Examples: []SemanticExample{{Tool: "read", Arguments: map[string]any{"path": "README.md"}}},
-			Limits:   "匹配工具名，不解析 Shell 中同名命令；不会证明其它扩展提供的同名工具没有写入副作用。"}
+			Limits:   "Matches the tool name and does not parse same-named commands in shell; does not prove that a same-named tool from another extension has no write side effects."}
 	}
 	return nil
 }

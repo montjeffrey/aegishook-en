@@ -20,20 +20,20 @@ const start = computed(() =>
 );
 </script>
 <template>
-  <nav class="record-pagination" :aria-label="`${label}分页`">
+  <nav class="record-pagination" :aria-label="`${label} pagination`">
     <span class="pagination-count" aria-live="polite"
-      >共 {{ total }} 条<span v-if="total">
+      >{{ total }} total<span v-if="total">
         · {{ start }}–{{ Math.min(page * pageSize, total) }}</span
       ></span
     >
     <div class="pagination-controls">
       <AppSelect
         :model-value="String(pageSize)"
-        :label="`${label}每页条数`"
+        :label="`${label} rows per page`"
         :options="
           [10, 20, 50, 100].map((n) => ({
             value: String(n),
-            label: `${n} 条 / 页`,
+            label: `${n} / page`,
           }))
         "
         @update:model-value="emit('update:pageSize', Number($event))"
@@ -42,7 +42,7 @@ const start = computed(() =>
         type="button"
         class="icon-button"
         :disabled="page <= 1"
-        aria-label="上一页"
+        aria-label="Previous page"
         @click="emit('update:page', page - 1)"
       >
         <Icon name="ChevronLeft" :size="16" />
@@ -54,7 +54,7 @@ const start = computed(() =>
         type="button"
         class="icon-button"
         :disabled="page >= pages"
-        aria-label="下一页"
+        aria-label="Next page"
         @click="emit('update:page', page + 1)"
       >
         <Icon name="ChevronRight" :size="16" />

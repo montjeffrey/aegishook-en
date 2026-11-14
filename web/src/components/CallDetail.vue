@@ -36,26 +36,26 @@ const command = computed(() => {
   <div class="call-detail">
     <div>
       <div class="request-heading">
-        <span class="eyebrow">{{ agentName(call.agent) }} · 工具请求</span>
+        <span class="eyebrow">{{ agentName(call.agent) }} · tool request</span>
         <div
           v-if="command !== null"
           class="request-display"
           role="group"
-          aria-label="参数显示方式"
+          aria-label="Argument display mode"
         >
           <button
             type="button"
             :aria-pressed="!showCommand"
             @click="showCommand = false"
           >
-            JSON 参数
+            JSON arguments
           </button>
           <button
             type="button"
             :aria-pressed="showCommand"
             @click="showCommand = true"
           >
-            命令视图
+            Command view
           </button>
         </div>
       </div>
@@ -64,16 +64,16 @@ const command = computed(() => {
           ? command
           : JSON.stringify(call.argumentsObj, null, 2)
       }}</pre>
-      <span class="muted">执行结果：{{ executionLabel(call.execution) }}</span>
+      <span class="muted">Execution result: {{ executionLabel(call.execution) }}</span>
       <div v-if="call.scriptFiles?.length" class="script-snapshot">
         <button class="text-button" @click="showScripts = !showScripts">
-          {{ showScripts ? "收起脚本快照" : "查看脚本快照" }}
+          {{ showScripts ? "Hide script snapshot" : "View script snapshot" }}
           <Icon :name="showScripts ? 'ChevronUp' : 'ChevronDown'" :size="14" />
         </button>
-        <span class="muted">采集状态：{{ call.scriptCaptureStatus || "未知" }}</span>
+        <span class="muted">Capture status: {{ call.scriptCaptureStatus || "Unknown" }}</span>
         <template v-if="showScripts">
           <div v-for="script in call.scriptFiles" :key="script.path + script.sha256" class="script-item">
-            <p class="muted mono">{{ script.path }} · {{ script.bytes || 0 }} bytes · {{ script.sha256 || "无摘要" }}</p>
+            <p class="muted mono">{{ script.path }} · {{ script.bytes || 0 }} bytes · {{ script.sha256 || "No digest" }}</p>
             <p v-if="script.readError" class="muted">{{ script.readError }}</p>
             <pre v-if="script.content">{{ script.content }}</pre>
           </div>
@@ -82,7 +82,7 @@ const command = computed(() => {
     </div>
     <div>
       <span class="eyebrow">{{
-        call.decision === "pending" ? "审查状态" : "返回给 Agent 的裁决"
+        call.decision === "pending" ? "Review status" : "Decision returned to the Agent"
       }}</span>
       <p class="feedback">
         <Icon
@@ -97,16 +97,16 @@ const command = computed(() => {
         />{{
           call.comment ||
           (call.mode === "model"
-            ? "模型审查中，工具尚未执行。"
-            : "等待人工审批，工具尚未执行。")
+            ? "Model review in progress; the tool has not run."
+            : "Waiting for human approval; the tool has not run.")
         }}
       </p>
       <span class="muted"
-        >{{ reviewPathLabel(call) }} · 配置版本 v{{ call.version }}
+        >{{ reviewPathLabel(call) }} · config version v{{ call.version }}
         <template v-if="call.ruleId">
           · {{ call.ruleId
           }}<template v-if="matchedRuleName(call)"
-            >（{{ matchedRuleName(call) }}）</template
+            > ({{ matchedRuleName(call) }})</template
           ></template
         ></span
       >
@@ -114,28 +114,28 @@ const command = computed(() => {
   </div>
   <div class="detail-more">
     <button class="text-button" @click="more = !more">
-      {{ more ? "收起上下文" : "查看上下文与执行结果"
+      {{ more ? "Hide context" : "View context and execution result"
       }}<Icon :name="more ? 'ChevronUp' : 'ChevronDown'" :size="14" /></button
     ><template v-if="more"
-      ><p class="muted">用户消息</p>
-      <pre>{{ call.userMessage || "未提供" }}</pre>
-      <p class="muted">可见会话上下文</p>
-      <pre>{{ call.context || "未提供" }}</pre>
+      ><p class="muted">User message</p>
+      <pre>{{ call.userMessage || "Not provided" }}</pre>
+      <p class="muted">Visible session context</p>
+      <pre>{{ call.context || "Not provided" }}</pre>
       <template v-if="call.modelVerdict">
-        <p class="muted">模型初判：{{ call.modelVerdict.decision }}</p>
+        <p class="muted">Initial model verdict: {{ call.modelVerdict.decision }}</p>
         <pre>{{ call.modelVerdict.comment }}</pre>
       </template>
-      <p class="muted">执行输出</p>
-      <pre>{{ call.result || "尚无执行输出" }}</pre>
+      <p class="muted">Execution output</p>
+      <pre>{{ call.result || "No execution output yet" }}</pre>
       <template v-if="call.modelInput">
         <button class="text-button" @click="showModelInput = !showModelInput">
-          {{ showModelInput ? "收起模型输入" : "查看实际模型输入" }}
+          {{ showModelInput ? "Hide model input" : "View actual model input" }}
           <Icon :name="showModelInput ? 'ChevronUp' : 'ChevronDown'" :size="14" />
         </button>
         <pre v-if="showModelInput">{{ JSON.stringify(call.modelInput, null, 2) }}</pre>
-        <p class="muted">原始脚本已发送给审查模型</p>
+        <p class="muted">The original script was sent to the review model</p>
       </template>
-      <p class="muted mono">参数摘要 {{ call.digest }}</p></template
+      <p class="muted mono">Argument digest {{ call.digest }}</p></template
     >
   </div>
 </template>

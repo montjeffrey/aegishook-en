@@ -184,7 +184,7 @@ onBeforeUnmount(() => {
     @click="open ? (open = false) : show()"
     @keydown="keydown"
   >
-    <span>{{ selected?.label || "请选择" }}</span
+    <span>{{ selected?.label || "Select" }}</span
     ><Icon name="ChevronDown" :size="15" :class="{ rotated: open }" />
   </button>
   <Teleport to="body">

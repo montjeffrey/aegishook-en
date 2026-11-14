@@ -16,7 +16,7 @@ import (
 func (s *Server) clientDownloads(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/client-installer", func(w http.ResponseWriter, r *http.Request) {
 		if s.DownloadID == "" {
-			fail(w, 503, errors.New("下载入口尚未配置"))
+			fail(w, 503, errors.New("download endpoint is not configured"))
 			return
 		}
 		base := s.installEndpoint(r) + "/install/" + s.DownloadID
@@ -40,7 +40,7 @@ func (s *Server) clientDownloads(mux *http.ServeMux) {
 		}
 		b, err := assets.Files.ReadFile(resource)
 		if err != nil {
-			fail(w, 500, errors.New("安装脚本资源不可用"))
+			fail(w, 500, errors.New("install script resource is unavailable"))
 			return
 		}
 		endpoint := s.installEndpoint(r)
@@ -90,7 +90,7 @@ func (s *Server) clientDownloads(mux *http.ServeMux) {
 		if kind == "sha256" {
 			h := sha256.New()
 			if _, err = io.Copy(h, f); err != nil {
-				fail(w, 500, errors.New("程序校验失败"))
+				fail(w, 500, errors.New("binary verification failed"))
 				return
 			}
 			w.Header().Set("Content-Type", "text/plain")
@@ -116,7 +116,7 @@ func InitializeClientDownloads(e *core.Engine) (string, error) {
 		if decoded, e := hex.DecodeString(v); e == nil && len(decoded) == 16 {
 			return v, nil
 		}
-		return "", errors.New("安装脚本路径配置无效")
+		return "", errors.New("install script path configuration is invalid")
 	} else if !os.IsNotExist(err) {
 		return "", err
 	}

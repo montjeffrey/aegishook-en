@@ -9,7 +9,7 @@ const menu = ref<HTMLElement>();
 const open = ref(false);
 const position = ref<Record<string, string>>({});
 const id = `calendar-${getCurrentInstance()!.uid}`;
-const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+const weekdays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const month = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 const focused = ref("");
 
@@ -21,7 +21,7 @@ function parseDate(value: string) {
   return year && month && day ? new Date(year, month - 1, day) : new Date();
 }
 const today = computed(() => dateKey(new Date()));
-const title = computed(() => `${month.value.getFullYear()}年${month.value.getMonth() + 1}月`);
+const title = computed(() => `${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][month.value.getMonth()]} ${month.value.getFullYear()}`);
 const weeks = computed(() => {
   const first = new Date(month.value);
   first.setDate(1 - first.getDay());
@@ -130,16 +130,16 @@ onBeforeUnmount(() => {
     @keydown.down.prevent="show()" @keydown.esc.prevent="close(true)"
   >
     <span class="date-prefix">{{ prefix }}</span>
-    <span class="date-value" :class="{ placeholder: !modelValue }">{{ modelValue || '选择日期' }}</span>
+    <span class="date-value" :class="{ placeholder: !modelValue }">{{ modelValue || 'Select date' }}</span>
     <Icon name="CalendarDays" :size="14" />
   </button>
   <Teleport to="body">
-    <div v-if="open" :id="id" ref="menu" class="date-menu" role="dialog" :aria-label="`${label}日历`" :style="position" @keydown="keydown">
+    <div v-if="open" :id="id" ref="menu" class="date-menu" role="dialog" :aria-label="`${label} calendar`" :style="position" @keydown="keydown">
       <div class="date-menu-heading">
         <strong :id="`${id}-title`" aria-live="polite">{{ title }}</strong>
         <div class="date-menu-navigation">
-          <button type="button" class="icon-button" aria-label="上个月" @click="moveMonth(-1)"><Icon name="ChevronLeft" :size="16" /></button>
-          <button type="button" class="icon-button" aria-label="下个月" @click="moveMonth(1)"><Icon name="ChevronRight" :size="16" /></button>
+          <button type="button" class="icon-button" aria-label="Previous month" @click="moveMonth(-1)"><Icon name="ChevronLeft" :size="16" /></button>
+          <button type="button" class="icon-button" aria-label="Next month" @click="moveMonth(1)"><Icon name="ChevronRight" :size="16" /></button>
         </div>
       </div>
       <div class="date-grid" role="grid" :aria-labelledby="`${id}-title`">
@@ -159,8 +159,8 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div class="date-menu-footer">
-        <button type="button" class="text-button" @click="choose('')">清空</button>
-        <button type="button" class="text-button" @click="choose(dateKey(new Date()))">今天</button>
+        <button type="button" class="text-button" @click="choose('')">Clear</button>
+        <button type="button" class="text-button" @click="choose(dateKey(new Date()))">Today</button>
       </div>
     </div>
   </Teleport>

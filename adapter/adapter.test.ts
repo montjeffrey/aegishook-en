@@ -23,7 +23,7 @@ const { loadExtensions } = await import(
 
 test("review context omits all prior tool calls and results", () => {
   const message = (value: any) => ({ type: "message", message: value });
-  const branch: any[] = [message({ role: "user", content: "旧任务" })];
+  const branch: any[] = [message({ role: "user", content: "old task" })];
   for (let i = 0; i < 8; i++) {
     branch.push(
       message({
@@ -39,7 +39,7 @@ test("review context omits all prior tool calls and results", () => {
     );
   }
   branch.push(
-    message({ role: "user", content: [{ type: "text", text: "当前任务" }] }),
+    message({ role: "user", content: [{ type: "text", text: "current task" }] }),
   );
   // Do not read command/result contents even while locating the last user message.
   for (const role of ["assistant", "toolResult"]) {
@@ -48,7 +48,7 @@ test("review context omits all prior tool calls and results", () => {
       get content() { throw new Error("read historical content"); },
     }));
   }
-  assert.deepEqual(reviewContext(branch), { userMessage: "当前任务" });
+  assert.deepEqual(reviewContext(branch), { userMessage: "current task" });
 });
 
 test("review context keeps only bounded user text for local audit", () => {
@@ -205,7 +205,7 @@ test("Pi 0.85.1 loader, real agent loop, Go review, feedback and lifecycle", asy
     shutdown = () => emit("session_shutdown", { reason: "quit" });
     await emit("session_start", { reason: "startup" });
     assert.ok(
-      statuses.some((s) => s.includes("防护已连接")),
+      statuses.some((s) => s.includes("Protection connected")),
       "adapter did not register after real Pi load",
     );
     const { Agent } = await import(
@@ -398,7 +398,7 @@ test("Pi 0.85.1 loader, real agent loop, Go review, feedback and lifecycle", asy
     await admin("/approvals/" + manual.id + "/decision", "POST", {
       digest: manual.digest,
       decision: "reject",
-      comment: "仅允许只读验证",
+      comment: "Only read-only verification is allowed",
     });
     assert.equal((await waiting).block, true);
     await shutdown();
