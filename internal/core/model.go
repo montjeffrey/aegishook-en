@@ -87,6 +87,9 @@ type modelJSONError struct {
 func (e *modelJSONError) Error() string { return e.message }
 
 func callModelText(ctx context.Context, s Settings, messages []map[string]string, usage **TokenUsage) (string, error) {
+	if isCLIProtocol(s.Model.Protocol) {
+		return callModelCLI(ctx, s, messages, usage)
+	}
 	if err := ValidateModelURL(s.Model.BaseURL); err != nil {
 		return "", err
 	}

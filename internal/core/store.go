@@ -403,8 +403,15 @@ func (e *Engine) SaveSettings(s Settings, key *string) error {
 	if s.Model.Protocol == "" {
 		s.Model.Protocol = "openai"
 	}
-	if !hasExact(s.Model.Protocol, "openai", "anthropic") {
+	if !hasExact(s.Model.Protocol, "openai", "anthropic", protocolClaudeCLI, protocolCodexCLI) {
 		return errors.New("unsupported model protocol")
+	}
+	if isCLIProtocol(s.Model.Protocol) {
+		// A subscription CLI has no endpoint; the model name becomes a CLI argument.
+		s.Model.BaseURL = ""
+		if err := validateCLIModelName(s.Model.Model); err != nil {
+			return err
+		}
 	}
 	s.Model.APIKey = e.Settings.Model.APIKey
 	changed := s.Model.Protocol != e.Settings.Model.Protocol || s.Model.BaseURL != e.Settings.Model.BaseURL || s.Model.Model != e.Settings.Model.Model
