@@ -451,7 +451,8 @@ test("full local console workflow and visual states", async ({
     await protocol.press("ArrowDown");
     await protocol.press("End");
     await protocol.press("Enter");
-    await expect(protocol).toContainText("Anthropic");
+    // End moves to the last option in the list.
+    await expect(protocol).toContainText("ChatGPT subscription (Codex CLI)");
     await protocol.click();
     await page.getByRole("heading", { name: "Review model", exact: true }).click();
     await expect(page.getByRole("listbox")).toHaveCount(0);
