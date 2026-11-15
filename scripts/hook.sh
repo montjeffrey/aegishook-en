@@ -86,16 +86,17 @@ if [[ ! -e "$binary" ]]; then
    actual="$("${hash[@]}" "$tmp/aegishook" | awk '{print $1}')"
    [[ "$expected" =~ ^[0-9a-f]{64}$ && "$expected" == "$actual" ]] || die 'Client binary SHA-256 verification failed'
   else
-  release='https://github.com/RuoJi6/AegisHook/releases'
+  release='https://github.com/montjeffrey/aegishook-en/releases'
+  no_release="No release binary could be downloaded from $release. This edition may not have published binaries yet: build it from source and pass --binary <path>, or run the service with --client-binaries so it serves the binary itself."
   if [[ "$version" == latest ]];then
-   resolved="$(curl "${curl_args[@]}" -o /dev/null -w '%{url_effective}' "$release/latest")"
+   resolved="$(curl "${curl_args[@]}" -o /dev/null -w '%{url_effective}' "$release/latest")" || die "$no_release"
    [[ "$resolved" == "$release/tag/"* ]] || die 'Cannot resolve the latest Release'
    version="${resolved#"$release/tag/"}"
   fi
   [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || die 'Invalid version format'
   package="aegishook_${version}_${os}_${arch}"; archive="$package.tar.gz"
-  curl "${curl_args[@]}" -o "$tmp/$archive" "$release/download/$version/$archive"
-  curl "${curl_args[@]}" -o "$tmp/SHA256SUMS.txt" "$release/download/$version/SHA256SUMS.txt"
+  curl "${curl_args[@]}" -o "$tmp/$archive" "$release/download/$version/$archive" || die "$no_release"
+  curl "${curl_args[@]}" -o "$tmp/SHA256SUMS.txt" "$release/download/$version/SHA256SUMS.txt" || die "$no_release"
   expected="$(awk -v name="$archive" '$2==name || $2=="*"name {print $1}' "$tmp/SHA256SUMS.txt")"
   actual="$("${hash[@]}" "$tmp/$archive" | awk '{print $1}')"
   [[ "$expected" =~ ^[0-9a-f]{64}$ && "$expected" == "$actual" ]] || die 'Release package SHA-256 verification failed'
