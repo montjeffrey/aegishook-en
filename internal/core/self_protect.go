@@ -137,6 +137,27 @@ func (e *Engine) selfProtect(in ReviewInput, cwd string, resolve func(string, st
 	return nil
 }
 
+// withResolved adds the filesystem-resolved spelling of each protected path next to
+// the configured one. Resolving a candidate path expands symlinks and, on Windows,
+// 8.3 short names (C:\Users\RUNNER~1), so a root kept in its configured spelling
+// would never equal a resolved candidate. Both spellings are kept: the configured
+// one still matches a candidate that is only compared textually.
+func withResolved(in []string, local bool) []string {
+	if !local {
+		return in
+	}
+	out := make([]string, 0, 2*len(in))
+	for _, r := range in {
+		out = append(out, r)
+		if r != "" {
+			if res := policyPath(r, ""); res != "" && res != r {
+				out = append(out, res)
+			}
+		}
+	}
+	return out
+}
+
 func normSelfList(in []string) []string {
 	out := make([]string, 0, len(in))
 	for _, r := range in {
@@ -148,7 +169,7 @@ func normSelfList(in []string) []string {
 }
 
 func selfTouches(in ReviewInput, cwd string, set selfSet, resolve func(string, string) string, local bool) bool {
-	roots, dirs := normSelfList(set.roots), normSelfList(set.dirs)
+	roots, dirs := normSelfList(withResolved(set.roots, local)), normSelfList(withResolved(set.dirs, local))
 	seen := map[string]bool{}
 	pathResolved, bareResolved := 0, 0
 	checkOne := func(text string) bool {
