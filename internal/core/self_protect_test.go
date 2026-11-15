@@ -85,7 +85,9 @@ func TestSelfProtectPathForms(t *testing.T) {
 		for _, wrap := range []func(string) (string, map[string]any){
 			func(p string) (string, map[string]any) { return "Read", map[string]any{"file_path": p} },
 			func(p string) (string, map[string]any) { return "Bash", map[string]any{"command": "cat " + p} },
-			func(p string) (string, map[string]any) { return "Bash", map[string]any{"command": `Get-Content "` + p + `"`} },
+			func(p string) (string, map[string]any) {
+				return "Bash", map[string]any{"command": `Get-Content "` + p + `"`}
+			},
 			func(p string) (string, map[string]any) { return "Grep", map[string]any{"pattern": "x", "path": p} },
 		} {
 			tool, args := wrap(p)
