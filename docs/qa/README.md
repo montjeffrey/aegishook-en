@@ -1,6 +1,6 @@
 # Acceptance notes
 
-Isolated testing used macOS, a local Pi 0.85.1, Go 1.23.5, Node 23.10 and Chromium.
+Isolated testing used macOS, a local Pi 0.85.1, Go 1.23.5 (at the time; the project now requires Go 1.27.4+), Node 23.10 and Chromium.
 
 ## Automated coverage
 
