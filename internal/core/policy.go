@@ -20,11 +20,25 @@ var jsonSecrets = regexp.MustCompile(`(?i)("(?:password|passwd|secret|token|api.
 var urlSecrets = regexp.MustCompile(`(?i)(https?://)[^\s/@:]+:[^\s/@]+@`)
 var bearer = regexp.MustCompile(`(?i)\bBearer\s+[a-z0-9._~+/-]+`)
 
+// A bare -p is a port, a path or a flag in most tools, so it is not in flagSecrets.
+// It is a password for sshpass (-p <password>) and for the MySQL family, where the
+// value must follow -p directly (-pSECRET; a separated word is the database name).
+var sshpassFlag = regexp.MustCompile(`(?i)(\bsshpass\b[^\n;|&]*?\s-p\s*)(?:"[^"]*"|'[^']*'|[^\s,;&]+)`)
+var mysqlFlag = regexp.MustCompile(`(?i)(\b(?:mysql|mysqldump|mysqladmin|mariadb|mariadb-dump)(?:\.exe)?\b[^\n;|&]*?\s-p)(?:"[^"]*"|'[^']*'|[^\s,;&]+)`)
+
 const redactedMark = "[REDACTED]"
+
+// shellSyntax are the characters that make a "secret" something a shell would run
+// or redirect rather than a literal value.
+const shellSyntax = "$`();|&<>\n\r"
+
+// redactStats counts what redaction hid. shell counts hidden spans that contain
+// shell syntax, which would hide executable code from the reviewer.
+type redactStats struct{ hidden, shell int }
 
 // replaceCounting works like ReplaceAllString, but also counts the matches whose
 // replacement differs from the matched text, i.e. spans that were really hidden.
-func replaceCounting(re *regexp.Regexp, s, template string, hidden *int) string {
+func replaceCounting(re *regexp.Regexp, s, template string, st *redactStats) string {
 	idx := re.FindAllStringSubmatchIndex(s, -1)
 	if len(idx) == 0 {
 		return s
@@ -35,7 +49,14 @@ func replaceCounting(re *regexp.Regexp, s, template string, hidden *int) string 
 		out = append(out, s[last:m[0]]...)
 		rep := re.ExpandString(nil, template, s, m)
 		if string(rep) != s[m[0]:m[1]] {
-			*hidden++
+			st.hidden++
+			from := m[0]
+			if len(m) >= 4 && m[3] >= 0 {
+				from = m[3] // the kept prefix is not hidden; the rest is
+			}
+			if strings.ContainsAny(s[from:m[1]], shellSyntax) {
+				st.shell++
+			}
 		}
 		out = append(out, rep...)
 		last = m[1]
@@ -43,16 +64,24 @@ func replaceCounting(re *regexp.Regexp, s, template string, hidden *int) string 
 	return string(append(out, s[last:]...))
 }
 
+// redactSecretsStats masks secret-shaped text and counts the hidden spans.
+func redactSecretsStats(s string, st *redactStats) string {
+	s = replaceCounting(bearer, s, "Bearer [REDACTED]", st)
+	s = replaceCounting(jsonSecrets, s, `${1}"[REDACTED]"`, st)
+	s = replaceCounting(flagSecrets, s, "${1}[REDACTED]", st)
+	s = replaceCounting(sshpassFlag, s, "${1}[REDACTED]", st)
+	s = replaceCounting(mysqlFlag, s, "${1}[REDACTED]", st)
+	s = replaceCounting(urlSecrets, s, "${1}[REDACTED]@", st)
+	s = replaceCounting(textSecrets, s, "${1}[REDACTED]", st)
+	s = replaceCounting(bearer, s, "Bearer [REDACTED]", st)
+	return s
+}
+
 // redactSecrets masks secret-shaped text and reports how many spans were hidden.
 func redactSecrets(s string) (string, int) {
-	n := 0
-	s = replaceCounting(bearer, s, "Bearer [REDACTED]", &n)
-	s = replaceCounting(jsonSecrets, s, `${1}"[REDACTED]"`, &n)
-	s = replaceCounting(flagSecrets, s, "${1}[REDACTED]", &n)
-	s = replaceCounting(urlSecrets, s, "${1}[REDACTED]@", &n)
-	s = replaceCounting(textSecrets, s, "${1}[REDACTED]", &n)
-	s = replaceCounting(bearer, s, "Bearer [REDACTED]", &n)
-	return s, n
+	var st redactStats
+	s = redactSecretsStats(s, &st)
+	return s, st.hidden
 }
 
 // RedactText is for logs, errors, results and other display-only text; it also
@@ -73,36 +102,39 @@ func Redact(v any) any {
 // and returns how many spans were hidden. A reviewer must always be shown the
 // whole call, and must be told when part of it was masked.
 func redactArguments(v any) (any, int) {
+	var st redactStats
+	out := redactArgumentsStats(v, &st)
+	return out, st.hidden
+}
+
+// redactArgumentsStats is redactArguments with the shell-syntax count. A value under
+// a secret-named key is data for the tool, not text a shell parses, so it is
+// counted as hidden but never as shell syntax.
+func redactArgumentsStats(v any, st *redactStats) any {
 	switch x := v.(type) {
 	case map[string]any:
 		o := map[string]any{}
-		n := 0
 		for k, v := range x {
 			if secretKey.MatchString(k) {
 				o[k] = redactedMark
 				if v != redactedMark {
-					n++
+					st.hidden++
 				}
 			} else {
-				r, c := redactArguments(v)
-				o[k] = r
-				n += c
+				o[k] = redactArgumentsStats(v, st)
 			}
 		}
-		return o, n
+		return o
 	case []any:
 		o := make([]any, len(x))
-		n := 0
 		for i, v := range x {
-			var c int
-			o[i], c = redactArguments(v)
-			n += c
+			o[i] = redactArgumentsStats(v, st)
 		}
-		return o, n
+		return o
 	case string:
-		return redactSecrets(x)
+		return redactSecretsStats(x, st)
 	default:
-		return v, 0
+		return v
 	}
 }
 func BuiltinRules() []Rule {

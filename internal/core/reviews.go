@@ -180,7 +180,15 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 	// must be shown all of them. Arguments are redacted but never truncated, and
 	// the number of masked spans is recorded so a hidden span cannot be approved
 	// without a warning or by a model.
-	redacted, hidden := redactArguments(in.Arguments)
+	var stats redactStats
+	redacted := redactArgumentsStats(in.Arguments, &stats)
+	hidden := stats.hidden
+	// A span that holds shell syntax is not a literal secret: masking it would hide
+	// executable code from the human, so the call is refused outright.
+	if stats.shell > 0 && (d == nil || d.Decision == "approve") {
+		path = "rule"
+		d = &Decision{Decision: "reject", RuleID: secretSyntaxRule, Comment: "Actual operation: pass a value that contains shell syntax where a secret is expected; Consequence if successful: the masked text could run arbitrary commands that no reviewer can see; Matched rule: " + secretSyntaxRule + " (fixed). Do not put commands, substitutions or redirections in a secret argument; pass the secret through an environment variable or a file instead."}
+	}
 	reason := humanOnlyReason(in.ScriptCaptureStatus, hidden)
 	forcedHuman := false
 	if d != nil && d.Decision == "approve" && reason != "" {
@@ -236,6 +244,9 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 
 // humanOnlyReason explains why a call must be confirmed by a human instead of
 // being approved by a rule or a model; it is empty when nothing prevents that.
+// secretSyntaxRule rejects calls whose redacted span contains shell syntax.
+const secretSyntaxRule = "SECRET_SYNTAX"
+
 func humanOnlyReason(captureStatus string, hidden int) string {
 	reason := ""
 	if hidden > 0 {
