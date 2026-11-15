@@ -12,6 +12,7 @@ import {
   matchedRuleName,
 } from "../store";
 import type { Call } from "../types";
+import { quickApproveBlock } from "../approvalGuard";
 import Pagination from "../components/Pagination.vue";
 import Icon from "../components/Icon.vue";
 import AppSelect from "../components/AppSelect.vue";
@@ -193,7 +194,12 @@ watch(
                 <div class="actions row-actions">
                   <button
                     class="primary"
-                    :disabled="!!busy"
+                    :disabled="!!busy || !!quickApproveBlock(c)"
+                    :title="
+                      quickApproveBlock(c)
+                        ? `Open the details to approve: ${quickApproveBlock(c)}`
+                        : undefined
+                    "
                     @click="decide(c, 'approve')"
                   >
                     <Icon name="Check" :size="15" />Allow this call</button
@@ -205,10 +211,24 @@ watch(
                     <Icon name="X" :size="15" />Reject
                   </button>
                 </div>
+                <small v-if="quickApproveBlock(c)" class="muted"
+                  >Open the details to approve: {{ quickApproveBlock(c) }}.</small
+                >
               </td>
             </tr>
             <tr v-if="pendingExpanded === c.id" class="expanded-row">
-              <td colspan="7"><CallDetail :call="c" /></td>
+              <td colspan="7">
+                <CallDetail :call="c" />
+                <div v-if="quickApproveBlock(c)" class="actions">
+                  <button
+                    class="primary"
+                    :disabled="!!busy"
+                    @click="decide(c, 'approve')"
+                  >
+                    <Icon name="Check" :size="15" />Approve after reading the full call
+                  </button>
+                </div>
+              </td>
             </tr>
           </template>
           <tr v-if="!store.pending.length">
