@@ -54,7 +54,7 @@ func (c client) request(ctx context.Context, path string, body any, out any) err
 			Error string `json:"error"`
 		}
 		if json.NewDecoder(io.LimitReader(res.Body, 4096)).Decode(&refusal) == nil && refusal.Error != "" {
-			return fmt.Errorf("review service returned HTTP %d: %s", res.StatusCode, refusal.Error)
+			return fmt.Errorf("review service returned HTTP %d: %s", res.StatusCode, printable(refusal.Error))
 		}
 		return fmt.Errorf("review service returned HTTP %d", res.StatusCode)
 	}
@@ -344,4 +344,23 @@ func resultState(agent, event string, m map[string]any) (string, string) {
 		}
 	}
 	return "", result
+}
+
+// printable drops control characters (escape sequences, carriage returns, bidi
+// controls) and caps the length of server text before it reaches a terminal or the
+// agent, so a refusal reason cannot rewrite what the user sees.
+func printable(s string) string {
+	s = strings.Map(func(r rune) rune {
+		switch {
+		case r == '\t' || r == '\n':
+			return ' '
+		case r < 0x20 || r == 0x7f || r >= 0x80 && r <= 0x9f, r >= 0x200b && r <= 0x200f, r >= 0x202a && r <= 0x202e, r >= 0x2066 && r <= 0x2069:
+			return -1
+		}
+		return r
+	}, s)
+	if r := []rune(s); len(r) > 500 {
+		s = string(r[:500]) + "..."
+	}
+	return s
 }
