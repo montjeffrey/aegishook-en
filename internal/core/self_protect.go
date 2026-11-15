@@ -2,8 +2,10 @@ package core
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -12,11 +14,16 @@ import (
 // under review must not read the gate's credentials (admin.token, model.key,
 // connection.json) or change the hook entries and adapter files that connect it.
 //
-// The check is static: it looks at every string in the call (arguments and script
-// snapshots), so it catches paths named in plain text, with ~ or common
-// environment-variable forms, relative paths, symlinks and case changes. It cannot
-// see a path that a shell builds at run time (for example from a variable or a
-// glob); such a call still reaches the configured reviewer.
+// This is defence in depth and best effort, not a security boundary. The check is
+// static: it looks at every string in the call (arguments and script snapshots), so
+// it catches paths named in plain text (also with quotes or backslash escapes
+// spliced in), with ~ or common environment-variable forms, simple globs, relative
+// paths, symlinks and case changes. It cannot see a path that a shell builds at run
+// time (a variable, command substitution, brace expansion), a whole-home recursive
+// read (grep -r token ~), or a Windows junction (junctions are not followed; only
+// symlinks the platform resolves are). Such a call still reaches the configured
+// reviewer. An agent running as the same OS user as the gate can always read the
+// gate's files; see the README for the stronger options.
 
 // selfMarkers name the default data and client directories wherever they appear.
 var selfMarkers = []string{".aegishook"}
@@ -36,68 +43,117 @@ const selfProtectRule = "SELF_PROTECT"
 var (
 	selfSplit = regexp.MustCompile("[\\s;|&<>()\"'`=,]+")
 	selfEnv   = regexp.MustCompile(`(?i)\$\{env:(\w+)\}|\$env:(\w+)|\$\{(\w+)\}|\$(\w+)|%(\w+)%`)
+	// selfStrip removes the characters a shell drops while parsing a word, so that
+	// ~/.aegis''hook and ~/.aegis\hook read as ~/.aegishook.
+	selfStrip = strings.NewReplacer("'", "", "\"", "", "\\", "", "`", "")
 )
 
-// maxSelfResolve bounds the filesystem lookups made per call; the textual checks
-// are not bounded.
-const maxSelfResolve = 512
+// Lookup budgets. Tokens with a path separator are resolved through the filesystem
+// (symlinks); once that budget is spent the call is rejected rather than waved
+// through. Bare names are resolved on a best-effort basis and then skipped.
+const (
+	maxSelfResolve     = 512
+	maxSelfBareResolve = 256
+)
 
 func normalizeSelf(s string) string {
 	return strings.ToLower(strings.ReplaceAll(s, "\\", "/"))
 }
 
-// selfProtectedPaths lists what the gate protects on this machine. Caller holds e.mu.
-func (e *Engine) selfProtectedPaths() []string {
-	roots := []string{e.Dir}
+// cleanSelf lexically cleans a normalised token (no filesystem access) so that
+// ~/.claude//settings.json and ~/.claude/./settings.json match like the plain form.
+func cleanSelf(n string) string {
+	if strings.Contains(n, "/") {
+		return path.Clean(n)
+	}
+	return n
+}
+
+// selfSet is what the gate protects on this machine: files and trees (roots, also
+// matched as a prefix) and directories that must not be moved or replaced (dirs,
+// matched exactly).
+type selfSet struct {
+	roots, dirs []string
+}
+
+// selfProtectedPaths lists what the gate protects on this machine. ok is false when
+// the installation records could not be read, so the list may be incomplete.
+// Caller holds e.mu. CLAUDE_CONFIG_DIR, CODEX_HOME and the other variables are read
+// from the server's environment, which need not be the agent's.
+func (e *Engine) selfProtectedPaths() (set selfSet, ok bool) {
+	set.roots = []string{e.Dir}
+	// The default data and client directories are protected even when this engine
+	// uses another data directory, so globs and spellings of them are caught.
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		set.roots = append(set.roots, filepath.Join(home, ".aegishook"), filepath.Join(home, ".aegishook-client"))
+	}
 	if e.IntegrationBinary != "" {
-		roots = append(roots, e.IntegrationBinary)
+		set.roots = append(set.roots, e.IntegrationBinary)
 	}
 	for _, agent := range []string{"claude", "codex", "grok", "opencode", "pi"} {
 		base := agentHome(agent)
+		var files []string
 		switch agent {
 		case "claude":
-			roots = append(roots, filepath.Join(base, "settings.json"), filepath.Join(base, "settings.local.json"))
+			files = []string{filepath.Join(base, "settings.json"), filepath.Join(base, "settings.local.json")}
+			set.dirs = append(set.dirs, base)
 		case "codex":
-			roots = append(roots, filepath.Join(base, "hooks.json"))
+			files = []string{filepath.Join(base, "hooks.json")}
+			set.dirs = append(set.dirs, base)
 		case "grok":
-			roots = append(roots, filepath.Join(base, "hooks", "aegishook.json"))
+			files = []string{filepath.Join(base, "hooks", "aegishook.json")}
+			set.dirs = append(set.dirs, base, filepath.Join(base, "hooks"))
 		case "opencode":
-			roots = append(roots, filepath.Join(base, "plugins", "aegishook.js"))
+			files = []string{filepath.Join(base, "plugins", "aegishook.js")}
+			set.dirs = append(set.dirs, filepath.Join(base, "plugins"))
 		default:
-			roots = append(roots, filepath.Join(base, "extensions", "aegishook.ts"))
+			files = []string{filepath.Join(base, "extensions", "aegishook.ts")}
+			set.dirs = append(set.dirs, filepath.Join(base, "extensions"))
+		}
+		set.roots = append(set.roots, files...)
+	}
+	installs, err := list[Installation](e, "installations")
+	if err != nil {
+		return set, false
+	}
+	for _, i := range installs {
+		if i.Entry != "" {
+			set.roots = append(set.roots, i.Entry)
 		}
 	}
-	if installs, err := list[Installation](e, "installations"); err == nil {
-		for _, i := range installs {
-			if i.Entry != "" {
-				roots = append(roots, i.Entry)
-			}
-		}
-	}
-	return roots
+	return set, true
 }
 
 // selfProtect returns a reject decision when the call names a protected path.
 // local is false for a remote node, whose home and environment are unknown here.
 func (e *Engine) selfProtect(in ReviewInput, cwd string, resolve func(string, string) string, local bool) *Decision {
-	roots := e.selfProtectedPaths()
-	if selfTouches(in, cwd, roots, resolve, local) {
+	set, ok := e.selfProtectedPaths()
+	if !ok {
+		return &Decision{Decision: "reject", RuleID: selfProtectRule, Comment: "Actual operation: not determined; Consequence if successful: unknown; Matched rule: " + selfProtectRule + " (fixed self-protection could not read the installation records, so the call is refused rather than allowed unchecked). Retry once the service is healthy."}
+	}
+	if selfTouches(in, cwd, set, resolve, local) {
 		return &Decision{Decision: "reject", RuleID: selfProtectRule, Comment: "Actual operation: access the gate's own data directory, credentials or hook configuration; Consequence if successful: the agent could read the gate's tokens and keys or switch off the gate; Matched rule: " + selfProtectRule + " (fixed self-protection, cannot be disabled). Do not touch AegisHook files; ask the user to change them."}
 	}
 	return nil
 }
 
-func selfTouches(in ReviewInput, cwd string, roots []string, resolve func(string, string) string, local bool) bool {
-	normRoots := make([]string, 0, len(roots))
-	for _, r := range roots {
+func normSelfList(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, r := range in {
 		if r != "" {
-			normRoots = append(normRoots, strings.TrimRight(normalizeSelf(r), "/"))
+			out = append(out, path.Clean(strings.TrimRight(normalizeSelf(r), "/")))
 		}
 	}
-	resolved := 0
-	check := func(text string) bool {
+	return out
+}
+
+func selfTouches(in ReviewInput, cwd string, set selfSet, resolve func(string, string) string, local bool) bool {
+	roots, dirs := normSelfList(set.roots), normSelfList(set.dirs)
+	seen := map[string]bool{}
+	pathResolved, bareResolved := 0, 0
+	checkOne := func(text string) bool {
 		whole := normalizeSelf(text)
-		if matchesSelf(whole, normRoots, false) {
+		if matchesSelf(whole, roots, dirs, false) {
 			return true
 		}
 		for _, tok := range selfSplit.Split(text, -1) {
@@ -107,16 +163,44 @@ func selfTouches(in ReviewInput, cwd string, roots []string, resolve func(string
 			if local {
 				tok = expandSelfEnv(tok)
 			}
-			n := normalizeSelf(tok)
-			if matchesSelf(n, normRoots, true) {
+			n := cleanSelf(normalizeSelf(tok))
+			if matchesSelf(n, roots, dirs, true) {
 				return true
 			}
-			if resolved < maxSelfResolve && strings.ContainsAny(tok, "/\\.~") {
-				resolved++
-				if r := resolve(tok, cwd); r != "" && matchesSelf(normalizeSelf(r), normRoots, true) {
-					return true
-				}
+			if strings.ContainsAny(tok, "*?[") && globTouches(n, normalizeSelf(cwd), roots, dirs) {
+				return true
 			}
+			if seen[tok] {
+				continue
+			}
+			sep := strings.ContainsAny(tok, "/\\") || strings.HasPrefix(tok, "~")
+			if !sep && !strings.Contains(tok, ".") {
+				continue
+			}
+			seen[tok] = true
+			if sep {
+				if pathResolved >= maxSelfResolve {
+					return true // fail closed: too many paths to check them all
+				}
+				pathResolved++
+			} else {
+				if bareResolved >= maxSelfBareResolve {
+					continue
+				}
+				bareResolved++
+			}
+			if r := resolve(tok, cwd); r != "" && matchesSelf(cleanSelf(normalizeSelf(r)), roots, dirs, true) {
+				return true
+			}
+		}
+		return false
+	}
+	check := func(text string) bool {
+		if checkOne(text) {
+			return true
+		}
+		if stripped := selfStrip.Replace(text); stripped != text {
+			return checkOne(stripped)
 		}
 		return false
 	}
@@ -153,8 +237,9 @@ func selfTouches(in ReviewInput, cwd string, roots []string, resolve func(string
 
 // matchesSelf reports whether n (lower-case, forward slashes) names a protected
 // location. asPath also accepts exact and suffix matches, which only make sense for
-// a single path-like token.
-func matchesSelf(n string, roots []string, asPath bool) bool {
+// a single path-like token. dirs match only exactly, so ~/.claude/projects stays
+// usable while moving or replacing ~/.claude itself is refused.
+func matchesSelf(n string, roots, dirs []string, asPath bool) bool {
 	for _, m := range selfMarkers {
 		if strings.Contains(n, m) {
 			return true
@@ -170,10 +255,61 @@ func matchesSelf(n string, roots []string, asPath bool) bool {
 		}
 	}
 	if asPath {
+		for _, d := range dirs {
+			if n == d {
+				return true
+			}
+		}
+	}
+	if asPath {
 		for _, s := range selfSuffixes {
 			if n == s || strings.HasSuffix(n, "/"+s) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// globTouches reports whether a glob token could name a protected location. The
+// pattern is anchored at the session directory when relative and compared segment
+// by segment with path.Match; on POSIX a * does not match a leading dot, as in a
+// shell. Brace expansion is not understood.
+func globTouches(pat, cwd string, roots, dirs []string) bool {
+	if !(strings.HasPrefix(pat, "/") || len(pat) > 1 && pat[1] == ':') {
+		if cwd == "" {
+			return false
+		}
+		pat = path.Clean(cwd + "/" + pat)
+	}
+	ps := strings.Split(pat, "/")
+	segMatch := func(p, s string) bool {
+		if runtime.GOOS != "windows" && strings.HasPrefix(s, ".") && !strings.HasPrefix(p, ".") {
+			return false
+		}
+		ok, err := path.Match(p, s)
+		return err == nil && ok
+	}
+	hit := func(target string, prefix bool) bool {
+		ts := strings.Split(target, "/")
+		if len(ps) < len(ts) || !prefix && len(ps) != len(ts) {
+			return false
+		}
+		for i := range ts {
+			if !segMatch(ps[i], ts[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	for _, r := range roots {
+		if hit(r, true) {
+			return true
+		}
+	}
+	for _, d := range dirs {
+		if hit(d, false) {
+			return true
 		}
 	}
 	return false
@@ -224,8 +360,13 @@ func expandSelfEnv(tok string) string {
 			return agentHome("claude")
 		case "codex_home":
 			return agentHome("codex")
-		case "opencode_config_dir", "xdg_config_home":
+		case "opencode_config_dir":
 			return agentHome("opencode")
+		case "xdg_config_home":
+			if v := os.Getenv("XDG_CONFIG_HOME"); v != "" {
+				return v
+			}
+			return filepath.Join(home, ".config")
 		}
 		return m
 	})
