@@ -172,6 +172,31 @@ func selfTouches(in ReviewInput, cwd string, set selfSet, resolve func(string, s
 	roots, dirs := normSelfList(withResolved(set.roots, local)), normSelfList(withResolved(set.dirs, local))
 	seen := map[string]bool{}
 	pathResolved, bareResolved := 0, 0
+	// resolveTouches resolves one path-like string through the filesystem (symlinks,
+	// 8.3 names) and reports whether it names a protected location. The budget is
+	// shared by every string, so an exhausted budget fails closed.
+	resolveTouches := func(tok string, sep bool) bool {
+		if seen[tok] {
+			return false
+		}
+		if !sep && !strings.Contains(tok, ".") {
+			return false
+		}
+		seen[tok] = true
+		if sep {
+			if pathResolved >= maxSelfResolve {
+				return true // fail closed: too many paths to check them all
+			}
+			pathResolved++
+		} else {
+			if bareResolved >= maxSelfBareResolve {
+				return false
+			}
+			bareResolved++
+		}
+		r := resolve(tok, cwd)
+		return r != "" && matchesSelf(cleanSelf(normalizeSelf(r)), roots, dirs, true)
+	}
 	checkOne := func(text string) bool {
 		whole := normalizeSelf(text)
 		if matchesSelf(whole, roots, dirs, false) {
@@ -191,26 +216,25 @@ func selfTouches(in ReviewInput, cwd string, set selfSet, resolve func(string, s
 			if strings.ContainsAny(tok, "*?[") && globTouches(n, normalizeSelf(cwd), roots, dirs) {
 				return true
 			}
-			if seen[tok] {
-				continue
+			if resolveTouches(tok, strings.ContainsAny(tok, "/\\") || strings.HasPrefix(tok, "~")) {
+				return true
 			}
-			sep := strings.ContainsAny(tok, "/\\") || strings.HasPrefix(tok, "~")
-			if !sep && !strings.Contains(tok, ".") {
-				continue
+		}
+		// A path with spaces is not one token above. Take the whole value and each
+		// quoted run as a path too, so a spelling that only the filesystem can map
+		// to a protected root (a symlink, a mix of short and long names) is caught.
+		for _, span := range selfSpans(text) {
+			if local {
+				span = expandSelfEnv(span)
 			}
-			seen[tok] = true
-			if sep {
-				if pathResolved >= maxSelfResolve {
-					return true // fail closed: too many paths to check them all
-				}
-				pathResolved++
-			} else {
-				if bareResolved >= maxSelfBareResolve {
-					continue
-				}
-				bareResolved++
+			n := cleanSelf(normalizeSelf(span))
+			if matchesSelf(n, roots, dirs, true) {
+				return true
 			}
-			if r := resolve(tok, cwd); r != "" && matchesSelf(cleanSelf(normalizeSelf(r)), roots, dirs, true) {
+			if strings.ContainsAny(span, "*?[") && globTouches(n, normalizeSelf(cwd), roots, dirs) {
+				return true
+			}
+			if resolveTouches(span, true) {
 				return true
 			}
 		}
@@ -254,6 +278,31 @@ func selfTouches(in ReviewInput, cwd string, set selfSet, resolve func(string, s
 		}
 	}
 	return false
+}
+
+// selfQuoted finds quoted runs in a command.
+var selfQuoted = regexp.MustCompile("\"([^\"\n]+)\"|'([^'\n]+)'")
+
+// maxSelfSpan bounds the length of a string taken as one path.
+const maxSelfSpan = 1024
+
+// selfSpans returns the strings that may be one path although they hold white
+// space: the whole value, and each quoted run in it. Only those with a path
+// separator and a space are returned; anything without a space is already a
+// single token.
+func selfSpans(text string) []string {
+	var out []string
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if len(s) <= maxSelfSpan && strings.ContainsAny(s, " \t") && strings.ContainsAny(s, "/\\") {
+			out = append(out, s)
+		}
+	}
+	add(text)
+	for _, m := range selfQuoted.FindAllStringSubmatch(text, -1) {
+		add(m[1] + m[2])
+	}
+	return out
 }
 
 // matchesSelf reports whether n (lower-case, forward slashes) names a protected
