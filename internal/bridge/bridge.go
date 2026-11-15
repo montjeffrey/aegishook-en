@@ -49,6 +49,13 @@ func (c client) request(ctx context.Context, path string, body any, out any) err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
+		// The service explains a refusal in an already-redacted JSON error.
+		var refusal struct {
+			Error string `json:"error"`
+		}
+		if json.NewDecoder(io.LimitReader(res.Body, 4096)).Decode(&refusal) == nil && refusal.Error != "" {
+			return fmt.Errorf("review service returned HTTP %d: %s", res.StatusCode, refusal.Error)
+		}
 		return fmt.Errorf("review service returned HTTP %d", res.StatusCode)
 	}
 	if out != nil {
