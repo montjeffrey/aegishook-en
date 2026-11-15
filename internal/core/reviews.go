@@ -166,11 +166,15 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 	}
 	// Every adapter shares this boundary. Resolve deterministic policy against
 	// the original arguments before redaction or either fallback reviewer.
-	path := "scope"
-	d := checkScopePaths(in, i.Cwd, applicable, resolve, contains)
+	path := "rule"
+	d := e.selfProtect(in, i.Cwd, resolve, i.NodeID == "")
 	if d == nil {
-		path = "rule"
-		d = evaluatePaths(in, rules, i.Cwd, resolve)
+		path = "scope"
+		d = checkScopePaths(in, i.Cwd, applicable, resolve, contains)
+		if d == nil {
+			path = "rule"
+			d = evaluatePaths(in, rules, i.Cwd, resolve)
+		}
 	}
 	// The digest binds the approval to the original arguments, so the reviewer
 	// must be shown all of them. Arguments are redacted but never truncated, and
