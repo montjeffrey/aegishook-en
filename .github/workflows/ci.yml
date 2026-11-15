@@ -28,8 +28,7 @@ jobs:
       - run: npm --prefix web ci --no-audit --no-fund
       - run: npm --prefix web run build
       - run: node scripts/prepare-assets.mjs
-      - run: go test ./internal/core -run '^TestClient' -count=1
-      - run: go test ./internal/server ./internal/localaddr ./cmd/aegishook
+      - run: go test ./... -count=1
       - run: go build -o bin/aegishook.exe ./cmd/aegishook
       - name: Native Windows installer lifecycle
         shell: powershell
@@ -39,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
