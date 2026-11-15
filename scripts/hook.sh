@@ -90,7 +90,7 @@ if [[ ! -e "$binary" ]]; then
   no_release="No release binary could be downloaded from $release. This edition may not have published binaries yet: build it from source and pass --binary <path>, or run the service with --client-binaries so it serves the binary itself."
   if [[ "$version" == latest ]];then
    resolved="$(curl "${curl_args[@]}" -o /dev/null -w '%{url_effective}' "$release/latest")" || die "$no_release"
-   [[ "$resolved" == "$release/tag/"* ]] || die 'Cannot resolve the latest Release'
+   [[ "$resolved" == "$release/tag/"* ]] || die "$no_release (GitHub has no latest release to resolve)"
    version="${resolved#"$release/tag/"}"
   fi
   [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || die 'Invalid version format'
