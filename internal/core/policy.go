@@ -262,8 +262,7 @@ func builtinMatchesPaths(input ReviewInput, cwd string, resolve func(string, str
 					}
 				case "rm", "rmdir", "shred":
 					for _, w := range words[1:] {
-						p := filepath.ToSlash(filepath.Clean(w))
-						if p == "/" || has(p, "/etc", "/var/lib", "/home", "/Users", "/var/www") || p == "~" || p == "$HOME" {
+						if criticalRemoveTarget(w) {
 							add("R4", "delete important files or a data directory")
 						}
 					}
@@ -303,6 +302,41 @@ func builtinMatchesPaths(input ReviewInput, cwd string, resolve func(string, str
 	}
 	return hits
 }
+
+// criticalRemoveTargets are directories whose removal (or removal of anything
+// under them, on a POSIX absolute path) is refused by R4.
+var criticalRemoveTargets = []string{"/etc", "/var/lib", "/home", "/Users", "/var/www"}
+
+// criticalRemoveTarget matches whole path components: /home and /home/u/x match,
+// /homework and build/home/x do not. A Windows drive path is refused only when it
+// is the user-data or system directory itself or a drive root, so deleting a file in
+// a project under a Users directory is not blocked here.
+func criticalRemoveTarget(w string) bool {
+	if w == "~" || w == "$HOME" {
+		return true
+	}
+	p := filepath.ToSlash(filepath.Clean(w))
+	if p == "/" {
+		return true
+	}
+	if len(p) >= 2 && p[1] == ':' {
+		rest := strings.ToLower(p[2:])
+		if rest == "" || rest == "/" || rest == "/users" || rest == "/windows" || rest == "/program files" {
+			return true
+		}
+		return false
+	}
+	if !strings.HasPrefix(p, "/") {
+		return false
+	}
+	for _, d := range criticalRemoveTargets {
+		if p == d || strings.HasPrefix(p, d+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 func protectedPath(p string) bool {
 	// ToSlash keeps POSIX-style protected paths (/etc/...) matching on Windows,
 	// where filepath.Clean rewrites them with backslashes.
