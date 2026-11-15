@@ -98,6 +98,26 @@ func Redact(v any) any {
 	return out
 }
 
+// commandText returns the command a tool call will execute, using the same
+// classification as the built-in rules: the Bash tool, or any tool whose arguments
+// carry a command or cmd string. ok is false for every other tool.
+func commandText(in ReviewInput) (cmd string, ok bool) {
+	cmd = argumentText(in.Arguments, "command", "cmd")
+	return cmd, strings.EqualFold(in.ToolName, "bash") || cmd != ""
+}
+
+// commandShellSpans counts the secret-shaped spans inside the executed command that
+// contain shell syntax. It is zero for tools that do not execute a command.
+func commandShellSpans(in ReviewInput) int {
+	cmd, ok := commandText(in)
+	if !ok {
+		return 0
+	}
+	var st redactStats
+	redactSecretsStats(cmd, &st)
+	return st.shell
+}
+
 // redactArguments masks secrets in tool-call arguments without truncating them,
 // and returns how many spans were hidden. A reviewer must always be shown the
 // whole call, and must be told when part of it was masked.

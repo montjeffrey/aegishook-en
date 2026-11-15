@@ -183,9 +183,11 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 	var stats redactStats
 	redacted := redactArgumentsStats(in.Arguments, &stats)
 	hidden := stats.hidden
-	// A span that holds shell syntax is not a literal secret: masking it would hide
-	// executable code from the human, so the call is refused outright.
-	if stats.shell > 0 && (d == nil || d.Decision == "approve") {
+	// A span that holds shell syntax in a command that will be executed is not a
+	// literal secret: masking it would hide executable code from the human, so the
+	// call is refused outright. In any other tool (file writes, edits, patches) the
+	// text is data, so the call only goes to a human with the usual warning.
+	if commandShellSpans(in) > 0 && (d == nil || d.Decision == "approve") {
 		path = "rule"
 		d = &Decision{Decision: "reject", RuleID: secretSyntaxRule, Comment: "Actual operation: pass a value that contains shell syntax where a secret is expected; Consequence if successful: the masked text could run arbitrary commands that no reviewer can see; Matched rule: " + secretSyntaxRule + " (fixed). Do not put commands, substitutions or redirections in a secret argument; pass the secret through an environment variable or a file instead."}
 	}
