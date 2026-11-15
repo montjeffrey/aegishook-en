@@ -7,6 +7,7 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -323,6 +324,12 @@ func builtinMatchesPaths(input ReviewInput, cwd string, resolve func(string, str
 	return hits
 }
 
+// slashClean normalises a path from any OS to forward slashes and cleans it
+// lexically, without depending on the host's path separator.
+func slashClean(p string) string {
+	return path.Clean(strings.ReplaceAll(p, "\\", "/"))
+}
+
 // criticalRemoveTargets are directories whose removal (or removal of anything
 // under them, on a POSIX absolute path) is refused by R4.
 var criticalRemoveTargets = []string{"/etc", "/var/lib", "/home", "/Users", "/var/www"}
@@ -335,7 +342,7 @@ func criticalRemoveTarget(w string) bool {
 	if w == "~" || w == "$HOME" {
 		return true
 	}
-	p := filepath.ToSlash(filepath.Clean(w))
+	p := slashClean(w)
 	if p == "/" {
 		return true
 	}
@@ -358,9 +365,9 @@ func criticalRemoveTarget(w string) bool {
 }
 
 func protectedPath(p string) bool {
-	// ToSlash keeps POSIX-style protected paths (/etc/...) matching on Windows,
-	// where filepath.Clean rewrites them with backslashes.
-	p = filepath.ToSlash(filepath.Clean(p))
+	// The server may review calls made on another OS, so neither the host's
+	// separator nor filepath semantics may decide what is a system path.
+	p = slashClean(p)
 	win := strings.ToLower(strings.ReplaceAll(p, "\\", "/"))
 	if len(win) > 2 && win[1] == ':' {
 		win = win[2:]
