@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mvdan.cc/sh/v3/syntax"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -229,7 +230,7 @@ func builtinMatchesPaths(input ReviewInput, cwd string, resolve func(string, str
 					}
 				case "rm", "rmdir", "shred":
 					for _, w := range words[1:] {
-						p := filepath.Clean(w)
+						p := filepath.ToSlash(filepath.Clean(w))
 						if p == "/" || has(p, "/etc", "/var/lib", "/home", "/Users", "/var/www") || p == "~" || p == "$HOME" {
 							add("R4", "delete important files or a data directory")
 						}
@@ -271,7 +272,9 @@ func builtinMatchesPaths(input ReviewInput, cwd string, resolve func(string, str
 	return hits
 }
 func protectedPath(p string) bool {
-	p = filepath.Clean(p)
+	// ToSlash keeps POSIX-style protected paths (/etc/...) matching on Windows,
+	// where filepath.Clean rewrites them with backslashes.
+	p = filepath.ToSlash(filepath.Clean(p))
 	win := strings.ToLower(strings.ReplaceAll(p, "\\", "/"))
 	if len(win) > 2 && win[1] == ':' {
 		win = win[2:]
@@ -518,11 +521,18 @@ func checkScopePaths(in ReviewInput, cwd string, scopes []Scope, resolve func(st
 }
 
 // Resolve existing parent symlinks too, so a new file under a symlink is checked against its real destination.
-func policyPath(p, cwd string) string {
+func policyPath(p, cwd string) string { return resolvePolicyPath(p, cwd, 0) }
+
+// rootedPath reports a path that starts at a filesystem root without a drive, such
+// as /etc/hosts. filepath.IsAbs is false for it on Windows, but it must never be
+// joined to the working directory.
+func rootedPath(p string) bool { return strings.HasPrefix(p, "/") || strings.HasPrefix(p, `\`) }
+
+func resolvePolicyPath(p, cwd string, depth int) string {
 	if p == "" {
 		return ""
 	}
-	if !filepath.IsAbs(p) {
+	if !filepath.IsAbs(p) && !rootedPath(p) {
 		if cwd == "" {
 			return filepath.Clean(p)
 		}
@@ -537,6 +547,17 @@ func policyPath(p, cwd string) string {
 				parts = append(parts, suffix[i])
 			}
 			return filepath.Join(parts...)
+		}
+		// A dangling symlink still writes through to its target, so follow it by hand.
+		if target, err := os.Readlink(cur); err == nil && depth < 16 {
+			if !filepath.IsAbs(target) && !rootedPath(target) {
+				target = filepath.Join(filepath.Dir(cur), target)
+			}
+			parts := []string{target}
+			for i := len(suffix) - 1; i >= 0; i-- {
+				parts = append(parts, suffix[i])
+			}
+			return resolvePolicyPath(filepath.Join(parts...), "", depth+1)
 		}
 		parent := filepath.Dir(cur)
 		if parent == cur {
