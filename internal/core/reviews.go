@@ -352,7 +352,7 @@ func (e *Engine) Result(id, instance, state, result string) error {
 func (e *Engine) LocalDiagnostic() map[string]any {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return map[string]any{"version": Version, "mode": e.Settings.Mode, "dataDir": e.Dir, "modelConfigured": e.Settings.Model.Tested, "toolBoundary": "Pi tool_call; excludes sub-calls inside scripts, pi.exec from other extensions and user ! commands"}
+	return map[string]any{"version": Version, "mode": e.Settings.Mode, "dataDir": e.Dir, "modelConfigured": e.Settings.Model.Tested, "toolBoundary": "Each agent's own tool-call hook (Claude/Codex PreToolUse, Grok and OpenCode hooks, Pi tool_call); excludes sub-calls inside scripts and, for Pi, pi.exec from other extensions and user ! commands"}
 }
 func (e *Engine) ExportCalls() ([]byte, error) {
 	rs, err := e.Reviews()
