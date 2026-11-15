@@ -22,6 +22,9 @@ const form = ref<Settings | null>(null),
   apiKey = ref(""),
   testing = ref(false),
   dirty = ref(false);
+const cliModel = computed(() =>
+  ["claude-cli", "codex-cli"].includes(form.value?.model.protocol ?? ""),
+);
 async function loadPromptTemplate() {
   try {
     promptTemplate.value = await api<PromptTemplate>(
@@ -158,7 +161,7 @@ async function restore() {
         >
       </div>
       <p class="muted">
-        Supports OpenAI-compatible and Anthropic Messages protocols, independent of Pi's model login.
+        Supports OpenAI-compatible and Anthropic Messages APIs, or your Claude or ChatGPT subscription through the Claude Code or Codex CLI signed in on this machine. Independent of Pi's model login.
       </p>
       <label
         >API protocol<AppSelect
@@ -167,16 +170,23 @@ async function restore() {
           :options="[
             { value: 'openai', label: 'OpenAI-compatible (Chat Completions)' },
             { value: 'anthropic', label: 'Anthropic (Messages)' },
+            { value: 'claude-cli', label: 'Claude subscription (Claude Code CLI)' },
+            { value: 'codex-cli', label: 'ChatGPT subscription (Codex CLI)' },
           ]" /></label
-      ><label
+      ><p v-if="cliModel" class="tiny muted">
+        Runs the {{ form.model.protocol === "codex-cli" ? "codex" : "claude" }} command for each review, using its own sign-in; no API key is stored. Each review starts the CLI, so set the model request timeout to 60 seconds or more. {{ form.model.protocol === "codex-cli" ? "Codex runs with its tools turned off, and a review in which it uses one anyway is rejected." : "Claude Code runs with all tools, hooks and plugins turned off." }}
+      </p>
+      <label v-if="!cliModel"
         >Base URL<input
           v-model="form.model.baseUrl"
           placeholder="https://your-provider.example/v1" /></label
       ><label
         >Model name<input
           v-model="form.model.model"
-          placeholder="Enter the model ID from your provider" /></label
-      ><label
+          :placeholder="
+            cliModel ? 'Optional; leave blank for the CLI default' : 'Enter the model ID from your provider'
+          " /></label
+      ><label v-if="!cliModel"
         >API Key<input
           type="password"
           v-model="apiKey"
