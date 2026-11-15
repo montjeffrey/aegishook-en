@@ -2,13 +2,12 @@
 
 <img src="web/public/logo.svg" alt="AegisHook shield-and-hook logo" width="72" height="72">
 
-[![CI](https://github.com/RuoJi6/AegisHook/actions/workflows/ci.yml/badge.svg)](https://github.com/RuoJi6/AegisHook/actions/workflows/ci.yml)
-[![Release](https://github.com/RuoJi6/AegisHook/actions/workflows/release.yml/badge.svg)](https://github.com/RuoJi6/AegisHook/releases)
+[![CI](https://github.com/montjeffrey/aegishook-en/actions/workflows/ci.yml/badge.svg)](https://github.com/montjeffrey/aegishook-en/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > English translation of [RuoJi6/AegisHook](https://github.com/RuoJi6/AegisHook). Console, CLI, hook messages, review prompts and docs are translated; behavior is unchanged.
 
-A local Go + Vue 3 console that provides pre-execution tool call review, human approval, model decisions and auditing for Pi, Claude Code, Codex, OpenCode and Grok Build. The loopback address and port are configurable; use `-h` or `--help` for command help. Builds are provided for macOS, Linux and Windows. The Windows build has been cross-compiled but has not been tested on a real Windows machine.
+A local Go + Vue 3 console that provides pre-execution tool call review, human approval, model decisions and auditing for Pi, Claude Code, Codex, OpenCode and Grok Build. The loopback address and port are configurable; use `-h` or `--help` for command help. It builds from source on macOS, Linux and Windows. The Go test suite runs on Windows in CI; real-client installation and trust flows on Windows still need to be verified on the target machine.
 
 ![image-20260909171623533](assets/image-20260909171623533.png)
 
@@ -20,21 +19,22 @@ A local Go + Vue 3 console that provides pre-execution tool call review, human a
 
 
 
-For downloading, approving, installing and uninstalling remote Hooks, see [Remote access](docs/remote-clients.md).
+Remote Hook clients (a Hook on another machine reaching this service over an HTTPS reverse proxy) use `--public-url`, and are described in [Remote access](docs/remote-clients.md). Without `--public-url` the service is local only.
 
-## Downloads and releases
+## Build from source
 
-Download the archive for your platform from [GitHub Releases](https://github.com/RuoJi6/AegisHook/releases), extract it, and run `aegishook` (`aegishook.exe` on Windows). The release package contains the compiled Vue pages and the Hook assets, so you do not need to install Go, Node or frontend dependencies separately; the Agent itself still has to be installed on its own.
-
-Supported platforms: macOS Intel / Apple Silicon, Linux AMD64 / ARM64, Windows AMD64. `SHA256SUMS.txt` provides download checksums. Run `aegishook --version` to see the release version and the Hook protocol version.
-
-After a maintainer publishes a Release tagged `vX.Y.Z` on GitHub, the `Release` workflow tests the code, builds archives for five platforms, and uploads the archives and checksums to that Release. Pre-releases such as `vX.Y.Z-rc.1` are also supported; drafts do not trigger a build. The attachments are incomplete while the build is running, so rely on the workflow succeeding and the checksums appearing.
+No release binaries are published for this repository yet, and the `Release` workflow has never produced one, so the download-and-run path described upstream does not apply here. Build from source; this is the supported way to run it. You need Go 1.27.4 or newer, Node 22.19+ and npm.
 
 ```sh
-gh release create v0.2.0 --target main --title "v0.2.0" --notes-file release-notes.md
+npm ci --prefix web
+npm run build
 ```
 
-Regular pushes to `main` and pull requests run `CI` (Go on Linux/macOS, Pi/OpenCode tests and Linux browser tests). If the build of an existing release fails, re-run it in Actions, or run `Release` manually and enter the original tag; a re-run uses the source of that tag and does not replace the version tag. The release workflow uses the repository's built-in `GITHUB_TOKEN`, so no personal token or model key needs to be configured.
+This produces `bin/aegishook` (`binegishook.exe` on Windows). On Windows you can also run `powershell -File scripts/build.ps1`. The remote installer scripts (`scripts/hook.sh`, `scripts/hook.ps1`) download client binaries from `https://github.com/montjeffrey/aegishook-en/releases`; until a release exists they stop with an explicit "no release published" message. Until then, point them at your own build with `--binary` / `-Binary`, or serve builds with `--client-binaries` (see [Remote access](docs/remote-clients.md)).
+
+This is an English translation of the upstream project. Upstream publishes its own releases at [RuoJi6/AegisHook](https://github.com/RuoJi6/AegisHook/releases); those are a different build and are not verified or supported here.
+
+Regular pushes to `main` and pull requests run `CI` (Go on Linux and macOS, the Go suite on Windows, Pi/OpenCode tests and Linux browser tests).
 
 ## Getting started
 
@@ -46,7 +46,7 @@ For a local binary built from source:
 
 Open <http://127.0.0.1:18790> and log in with the contents of the `admin.token` file named in the startup output. An admin session is valid for 12 hours. The default mode is human review. The data directory must stay private; do not place it in a web root or a shared directory.
 
-When `--data-dir` is omitted, `~/.aegishook` is used. This development run uses `.data/local`; it holds the private token, the model key and SQLite, and is not part of the source delivery. After the service is shut down, a working AegisHook adapter explicitly rejects new tool calls. If the client does not load the Hook, does not start the command, or kills it by force on timeout, client behavior is covered in the integration boundaries below.
+When `--data-dir` is omitted, `~/.aegishook` is used. This development run uses `.data/local`; it holds the private token, the model key and SQLite, and is not part of the source delivery. After the service is shut down, a working AegisHook adapter explicitly rejects new tool calls, including read-only ones such as Read, grep and ls, because the allow rules are evaluated by the service. If the client does not load the Hook, does not start the command, or kills it by force on timeout, client behavior is covered in the integration boundaries below.
 
 ### Custom local address, port and help
 
@@ -71,6 +71,10 @@ When no command is given, `serve` runs by default. `--host` accepts only loopbac
 | `--port` | `18790` | Listen port, range `1-65535` |
 | `--addr` | unset | Specify address and port at once, kept for compatibility; mutually exclusive with `--host/--port` |
 | `--data-dir` | `~/.aegishook` | Private directory that stores the database, tokens and Hook connection config |
+| `--agent-dir` | `PI_CODING_AGENT_DIR`, else `~/.pi/agent` | Pi user directory (`serve` and `install` only) |
+| `--client-binaries` | unset | `serve` only. Directory of client binaries you host yourself for remote Hook installs; when omitted, remote installs download from the Release |
+| `--trusted-proxies` | none | `serve` only. Comma-separated proxy CIDRs allowed to set `X-Real-IP`; no proxy is trusted by default |
+| `--public-url` | unset | `serve` only. Public HTTPS origin of the reverse proxy in front of the service; local access only when omitted |
 | `-h`, `--help` | - | Print command help and exit; `aegishook <command> -h` is also supported |
 
 `serve`, `install`, `uninstall` and `status` all accept the address and port options above. Open the page at the address you actually configured, for example `http://localhost:18800` or `http://[::1]:18800`. If the port is in use, restart on a different port.
@@ -130,16 +134,16 @@ Integration references: [Claude Hook docs](https://code.claude.com/docs/en/hooks
 
 ### Windows
 
-Run the Windows build of the service and the Agent on a Windows machine; with WSL, run the Linux build of the service and the Agent in the same WSL environment. Connecting remotely to a review service on another machine is not currently offered.
+Run the Windows build of the service and the Agent on a Windows machine; with WSL, run the Linux build of the service and the Agent in the same WSL environment. Remote Hook clients are possible only through an HTTPS reverse proxy configured with `--public-url` (see [Remote access](docs/remote-clients.md)); the service itself still listens on loopback only.
 
 ```powershell
-.\bin\aegishook-windows-amd64.exe serve --data-dir "$env:LOCALAPPDATA\AegisHook"
-.\bin\aegishook-windows-amd64.exe install --data-dir "$env:LOCALAPPDATA\AegisHook" --agent claude --scope project --project "C:\work\project"
+.\bin\aegishook.exe serve --data-dir "$env:LOCALAPPDATA\AegisHook"
+.\bin\aegishook.exe install --data-dir "$env:LOCALAPPDATA\AegisHook" --agent claude --scope project --project "C:\work\project"
 
 # Custom local address and port
-.\bin\aegishook-windows-amd64.exe serve --host localhost --port 18800 --data-dir "$env:LOCALAPPDATA\AegisHook"
-.\bin\aegishook-windows-amd64.exe status --host localhost --port 18800 --data-dir "$env:LOCALAPPDATA\AegisHook"
-.\bin\aegishook-windows-amd64.exe -h
+.\bin\aegishook.exe serve --host localhost --port 18800 --data-dir "$env:LOCALAPPDATA\AegisHook"
+.\bin\aegishook.exe status --host localhost --port 18800 --data-dir "$env:LOCALAPPDATA\AegisHook"
+.\bin\aegishook.exe -h
 ```
 
 The service uses Windows file locks; command Hooks use PowerShell and preserve the original process exit code. Pi symlink installation also needs Windows Developer Mode or the permission to create symbolic links, and Pi's Bash tool needs Git Bash. Access to a private directory on Windows is decided by the local ACL, so place it in the current user's private directory; POSIX 0600 permissions are not equivalent to Windows ACL isolation. No real Windows machine was available this time, so installation, shell selection and client trust flows still need to be verified on the target machine.
@@ -204,17 +208,17 @@ All endpoints live under `/api/v1`. The admin side uses an HttpOnly, SameSite=St
 
 ## Boundaries
 
-If a command Hook cannot start, is disabled, is untrusted, a plugin fails to load, or it is killed by the client on timeout, tool blocking cannot be guaranteed. In particular, Grok's official documentation states that these failures default to allow; once the adapter has started successfully, a service that is offline, an invalid decision or an audit failure is explicitly rejected. Installed files do not mean you are already protected. Codex-managed tools and later `write_stdin` calls do not necessarily trigger a before-tool event; AegisHook cannot widen the review scope the client provides.
+If a command Hook cannot start, is disabled, is untrusted, a plugin fails to load, or it is killed by the client on timeout, tool blocking cannot be guaranteed. In particular, Grok's official documentation states that these failures default to allow; once the adapter has started successfully, a service that is offline, an invalid decision or an audit failure is explicitly rejected (an offline service blocks read-only tools too). Installed files do not mean you are already protected. Codex-managed tools and later `write_stdin` calls do not necessarily trigger a before-tool event; AegisHook cannot widen the review scope the client provides.
 
 This is **Agent tool-call-level review**, not operating system permission isolation or an execution sandbox. The shell AST only helps recognize explicit operations; complex, dynamic or opaque scripts go to the current review mode, and that does not prove the script is safe.
 
 It does not cover the user's `!` commands, `pi.exec()` calls inside other extensions, every side effect inside a script, or operations on clients that are not connected. Other extensions may change tool arguments along the event chain; load only trusted extensions. The same user can uninstall or modify extensions, tokens and local configuration, so this tool is not an unbypassable security boundary.
 
-The first version does not provide remote nodes, web chat, automatic retry of execution, or an execution sandbox. Lists and filters are meant for small-scale local auditing, and server-side pagination and archiving for large amounts of history are not yet available. Linux and Windows have been verified by cross-compilation. Pi is verified with the real loader and the Agent loop; the added clients are verified with official protocol fixtures and the actual OpenCode adapter callbacks, and a full model-driven end-to-end session acceptance for each of the four clients has not been completed.
+The service itself has no built-in remote node mode (remote Hook clients go through an HTTPS reverse proxy, see above), and the first version does not provide web chat, automatic retry of execution, or an execution sandbox. Lists and filters are meant for small-scale local auditing, and server-side pagination and archiving for large amounts of history are not yet available. Linux and Windows have been verified by cross-compilation. Pi is verified with the real loader and the Agent loop; the added clients are verified with official protocol fixtures and the actual OpenCode adapter callbacks, and a full model-driven end-to-end session acceptance for each of the four clients has not been completed.
 
 ## Development and verification
 
-Requires Go 1.23+, Node 22.19+ and npm.
+Requires Go 1.27.4+, Node 22.19+ and npm.
 
 ```sh
 npm run build

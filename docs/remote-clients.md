@@ -65,7 +65,7 @@ The reverse proxy should terminate TLS with a valid certificate, pass `Host`, an
 | Linux | `aegishook-linux-arm64`, `aegishook-linux-amd64` |
 | Windows | `aegishook-windows-amd64.exe` |
 
-First build and prepare the embedded pages (`npm run build`), then cross-compile the files you need with Go, for example `CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /private/aegis-clients/aegishook-linux-arm64 ./cmd/aegishook`. The client program must come from a version compatible with the server. When the distribution directory is omitted, the script downloads the GitHub Release and verifies its SHA-256; you must use a newer version that includes the `client` subcommand, because older versions refuse to install.
+First build and prepare the embedded pages (`npm run build`), then cross-compile the files you need with Go, for example `CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /private/aegis-clients/aegishook-linux-arm64 ./cmd/aegishook`. The client program must come from a version compatible with the server. When the distribution directory is omitted, the script downloads from the GitHub Releases of `montjeffrey/aegishook-en` and verifies its SHA-256 (no release is published yet, so until one exists the script stops with a "no release published" message and you must use `--client-binaries` or `--binary`); you must use a newer version that includes the `client` subcommand, because older versions refuse to install.
 
 You can also use `scripts/hook.sh` / `hook.ps1` from an already downloaded release package and specify the address with `--endpoint` / `-Endpoint`; the script then uses the program from the same package. `--binary` / `-Binary` points to an existing trusted program.
 
