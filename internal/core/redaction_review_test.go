@@ -86,6 +86,45 @@ func TestRedactedSpanWithShellSyntaxIsRejected(t *testing.T) {
 	}
 }
 
+// The reject applies where the span is executed. Writing source code that contains
+// password: z.string() is data: it is held for a human, never rejected or approved
+// by a rule or a model.
+func TestShellSyntaxInHiddenSpanOnlyRejectsExecutedCommands(t *testing.T) {
+	e := engine(t)
+	if err := e.SaveRule(Rule{ID: "U_ALLOW_ALL", Name: "allow all", Enabled: true, Decision: "approve", Pattern: ".*"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		tool   string
+		args   map[string]any
+		reject bool
+	}{
+		{"Bash", map[string]any{"command": shellPayload}, true},
+		{"bash", map[string]any{"command": shellPayload}, true},
+		{"run_in_terminal", map[string]any{"cmd": shellPayload}, true}, // unknown tool with a command field fails closed
+		{"Write", map[string]any{"file_path": "a.ts", "content": "const s = { password: z.string() };"}, false},
+		{"Write", map[string]any{"file_path": "a.ts", "content": "token = getToken()"}, false},
+		{"Edit", map[string]any{"file_path": "a.ts", "old_string": "a", "new_string": `secret: process.env.X || ""`}, false},
+		{"apply_patch", map[string]any{"patch": "+password: z.string()"}, false},
+		{"Bash", map[string]any{"command": "echo hi", "description": "token = getToken()"}, false}, // only the executed command counts
+		{"custom_tool", map[string]any{"note": "api_key: f(x)"}, false},                            // unknown tool without a command field
+	} {
+		r, err := e.Submit(input(ID(), c.tool, c.args))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.reject {
+			if r.Decision != "reject" || r.RuleID != secretSyntaxRule {
+				t.Errorf("%s %v: got %s / %s, want SECRET_SYNTAX reject", c.tool, c.args, r.Decision, r.RuleID)
+			}
+			continue
+		}
+		if r.Decision != "pending" || !r.NeedsHuman || r.ReviewPath != "human" || r.RedactedSpans < 1 || r.RuleID == secretSyntaxRule {
+			t.Errorf("%s %v: not held for a human: %s / %s / spans=%d", c.tool, c.args, r.Decision, r.RuleID, r.RedactedSpans)
+		}
+	}
+}
+
 func TestPasswordFlagsForSshpassAndMysql(t *testing.T) {
 	for _, c := range []struct {
 		cmd    string
