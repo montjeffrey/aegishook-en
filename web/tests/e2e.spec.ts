@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { createServer, type Server } from "node:http";
+const exe = process.platform === "win32" ? ".exe" : "";
 async function choose(page: Page, name: string, option: string) {
   const trigger = page.getByRole("combobox", { name, exact: true });
   await trigger.click();
@@ -32,7 +33,7 @@ test.beforeEach(async () => {
   await writeFile(join(dir, "data", "admin.token"), "browser-test-admin");
   await writeFile(join(dir, "data", "hook.token"), "browser-test-hook");
   proc = spawn(
-    fileURLToPath(new URL("../../bin/aegishook", import.meta.url)),
+    fileURLToPath(new URL("../../bin/aegishook" + exe, import.meta.url)),
     [
       "serve",
       "--data-dir",

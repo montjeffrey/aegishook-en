@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { captureScripts, isLoopbackHost, validateDecision, reviewContext } from "./index";
 const root = dirname(fileURLToPath(import.meta.url));
+const exe = process.platform === "win32" ? ".exe" : "";
 const piRequire = createRequire(
   join(root, "node_modules/@earendil-works/pi-coding-agent/package.json"),
 );
@@ -136,7 +137,7 @@ test("Pi 0.85.1 loader, real agent loop, Go review, feedback and lifecycle", asy
   await writeFile(join(data, "admin.token"), "test-admin");
   await writeFile(join(data, "hook.token"), "test-hook");
   const proc = spawn(
-    resolve(root, "../bin/aegishook"),
+    resolve(root, "../bin/aegishook" + exe),
     [
       "serve",
       "--data-dir",

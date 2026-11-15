@@ -7,13 +7,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 
+const exe = process.platform === "win32" ? ".exe" : "";
+
 test("OpenCode callbacks, both scopes, parameter binding, outcomes and offline denial", async () => {
   const dir = await mkdtemp(join(tmpdir(), "aegis opencode's-"));
   const project = join(dir, "project");
   await mkdir(project);
   const base = "http://127.0.0.1:18798";
   const server = spawn(
-    fileURLToPath(new URL("../bin/aegishook", import.meta.url)),
+    fileURLToPath(new URL("../bin/aegishook" + exe, import.meta.url)),
     ["serve", "--data-dir", join(dir, "data"), "--addr", "127.0.0.1:18798"],
     {
       env: {

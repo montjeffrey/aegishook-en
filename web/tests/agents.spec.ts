@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
+const exe = process.platform === "win32" ? ".exe" : "";
 let dir: string, proc: ChildProcess;
 const base = "http://127.0.0.1:18797";
 test.beforeAll(async () => {
@@ -14,7 +15,7 @@ test.beforeAll(async () => {
   await writeFile(join(dir, "data", "admin.token"), "fixture-admin");
   await writeFile(join(dir, "data", "hook.token"), "fixture-hook");
   proc = spawn(
-    fileURLToPath(new URL("../../bin/aegishook", import.meta.url)),
+    fileURLToPath(new URL("../../bin/aegishook" + exe, import.meta.url)),
     ["serve", "--data-dir", join(dir, "data"), "--addr", "127.0.0.1:18797"],
     { stdio: "pipe" },
   );

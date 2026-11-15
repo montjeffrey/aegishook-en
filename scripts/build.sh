@@ -5,4 +5,4 @@ npm --prefix web ci --no-audit --no-fund
 npm --prefix web run build
 node scripts/prepare-assets.mjs
 mkdir -p bin
-go build -trimpath -o bin/aegishook ./cmd/aegishook
+go build -trimpath -o "bin/aegishook$(go env GOEXE)" ./cmd/aegishook
