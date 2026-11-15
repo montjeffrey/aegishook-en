@@ -257,12 +257,12 @@ func (e *Engine) modelReview(r Review, s Settings) {
 		return
 	}
 	current.ModelVerdict = &d
-	if current.ScriptCaptureStatus == "incomplete" && d.Decision == "approve" {
+	if reason := humanOnlyReason(current.ScriptCaptureStatus, current.RedactedSpans); reason != "" && d.Decision == "approve" {
 		current.Decision = "pending"
 		current.NeedsHuman = true
 		current.ReviewPath = "human"
 		current.RuleID = ""
-		current.Comment = "The script could not be captured in full, so hidden side effects cannot be ruled out. Human confirmation is required."
+		current.Comment = reason
 		current.DecidedAt = nil
 		current.Execution = "not_executed"
 		e.commitReview(current, "review.model.incomplete")

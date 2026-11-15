@@ -14,6 +14,7 @@ export interface Call {
   reviewPath?: "scope" | "rule" | "human" | "model";
   rules?: Rule[];
   needsHuman?: boolean;
+  redactedSpans?: number;
   modelVerdict?: { decision: string; comment: string; ruleId: string };
   scriptCaptureStatus?: "not_applicable" | "complete" | "incomplete";
   scriptFiles?: ReviewScript[];
