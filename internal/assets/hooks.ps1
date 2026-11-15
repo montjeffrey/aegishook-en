@@ -93,7 +93,7 @@ try {
             } else {
             $release='https://github.com/montjeffrey/aegishook-en/releases'
             $noRelease="No release binary could be downloaded from $release. This edition may not have published binaries yet: build it from source and pass -Binary <path>, or run the service with --client-binaries so it serves the binary itself."
-            function Get-ReleaseFile($uri,$out) { try { Invoke-WebRequest -UseBasicParsing -Uri $uri -OutFile $out } catch { throw "$noRelease ($uri)" } }
+            function Get-ReleaseFile($uri,$out) { try { Invoke-WebRequest -UseBasicParsing -Uri $uri -OutFile $out } catch { throw "$noRelease ($uri): $($_.Exception.Message)" } }
             $checksums=Join-Path $temporary 'SHA256SUMS.txt'
             if ($Version -eq 'latest') {
                 Get-ReleaseFile "$release/latest/download/SHA256SUMS.txt" $checksums
