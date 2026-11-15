@@ -91,21 +91,23 @@ try {
                 $expected=([IO.File]::ReadAllText($checksum)).Trim()
                 if ($expected -notmatch '^[0-9a-f]{64}$' -or (Get-FileHash -LiteralPath $Binary -Algorithm SHA256).Hash -ne $expected) {throw 'SHA-256 verification failed.'}
             } else {
-            $release='https://github.com/RuoJi6/AegisHook/releases'
+            $release='https://github.com/montjeffrey/aegishook-en/releases'
+            $noRelease="No release binary could be downloaded from $release. This edition may not have published binaries yet: build it from source and pass -Binary <path>, or run the service with --client-binaries so it serves the binary itself."
+            function Get-ReleaseFile($uri,$out) { try { Invoke-WebRequest -UseBasicParsing -Uri $uri -OutFile $out } catch { throw "$noRelease ($uri)" } }
             $checksums=Join-Path $temporary 'SHA256SUMS.txt'
             if ($Version -eq 'latest') {
-                Invoke-WebRequest -UseBasicParsing -Uri "$release/latest/download/SHA256SUMS.txt" -OutFile $checksums
+                Get-ReleaseFile "$release/latest/download/SHA256SUMS.txt" $checksums
                 $matching=@(Get-Content -LiteralPath $checksums | Where-Object {$_ -match '^([0-9a-f]{64})\s+\*?aegishook_(v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)_windows_amd64\.zip$'})
                 if ($matching.Count -ne 1) {throw 'Cannot identify the latest Windows release.'}
                 $null=$matching[0] -match 'aegishook_(v.+)_windows_amd64\.zip$'
                 $Version=$Matches[1]
             } else {
                 if ($Version -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$') {throw 'Invalid version.'}
-                Invoke-WebRequest -UseBasicParsing -Uri "$release/download/$Version/SHA256SUMS.txt" -OutFile $checksums
+                Get-ReleaseFile "$release/download/$Version/SHA256SUMS.txt" $checksums
             }
             $package="aegishook_${Version}_windows_amd64"
             $archive=Join-Path $temporary "$package.zip"
-            Invoke-WebRequest -UseBasicParsing -Uri "$release/download/$Version/$package.zip" -OutFile $archive
+            Get-ReleaseFile "$release/download/$Version/$package.zip" $archive
             $pattern='^([0-9a-f]{64})\s+\*?'+[regex]::Escape("$package.zip")+'$'
             $matching=@(Get-Content -LiteralPath $checksums | Where-Object {$_ -match $pattern})
             if ($matching.Count -ne 1) {throw 'Missing or duplicate checksum.'}
