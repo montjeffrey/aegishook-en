@@ -75,3 +75,53 @@ func TestSelfProtectComparesShortAndLongSpellings(t *testing.T) {
 		t.Fatal("a sibling directory was rejected")
 	}
 }
+
+// A path with spaces is not one token, so it has to be resolved as a whole. Mixed
+// spellings (one directory short, the next long) are neither the configured root
+// nor its resolved form, so only the filesystem can tell they are the same place.
+func TestSelfProtectResolvesMixedShortAndLongSpellingsWithSpaces(t *testing.T) {
+	isolatedHome(t)
+	outer := filepath.Join(t.TempDir(), "Alice Example Profile")
+	inner := filepath.Join(outer, "My Data Folder")
+	gate := filepath.Join(inner, "gate")
+	cwd := filepath.Join(outer, "work tree")
+	for _, d := range []string{gate, cwd} {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(gate, "admin.token"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	outerShort, innerShort := shortSpelling(t, outer), shortSpelling(t, inner)
+	if strings.EqualFold(outerShort, outer) || strings.EqualFold(innerShort, inner) {
+		t.Skip("8.3 short names are disabled on this volume")
+	}
+	innerName := filepath.Base(innerShort) // the short name of the inner directory alone
+	variants := map[string]string{
+		"outer short, inner long": filepath.Join(outerShort, "My Data Folder"),
+		"outer long, inner short": filepath.Join(outer, innerName),
+		"both short":              innerShort,
+	}
+	for _, root := range []string{gate, filepath.Join(innerShort, "gate")} {
+		for name, dir := range variants {
+			cand := filepath.Join(dir, "gate", "admin.token")
+			for form, args := range callsNaming(cand) {
+				t.Run(name+" "+form, func(t *testing.T) {
+					if !touches(t, cwd, selfSet{roots: []string{root}}, "Bash", args) {
+						t.Fatalf("not rejected: root %q arg %v", root, args)
+					}
+				})
+			}
+			t.Run(name+" directory", func(t *testing.T) {
+				if !touches(t, cwd, selfSet{dirs: []string{root}}, "Read", map[string]any{"file_path": filepath.Join(dir, "gate")}) {
+					t.Fatalf("protected directory not rejected: root %q dir %q", root, dir)
+				}
+			})
+		}
+	}
+	other := filepath.Join(outerShort, "My Data Folder", "notes.txt")
+	if touches(t, cwd, selfSet{roots: []string{gate}}, "Read", map[string]any{"file_path": other}) {
+		t.Fatal("a sibling file was rejected")
+	}
+}
