@@ -172,16 +172,22 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 		path = "rule"
 		d = evaluatePaths(in, rules, i.Cwd, resolve)
 	}
+	// The digest binds the approval to the original arguments, so the reviewer
+	// must be shown all of them. Arguments are redacted but never truncated, and
+	// the number of masked spans is recorded so a hidden span cannot be approved
+	// without a warning or by a model.
+	redacted, hidden := redactArguments(in.Arguments)
+	reason := humanOnlyReason(in.ScriptCaptureStatus, hidden)
 	forcedHuman := false
-	if d != nil && d.Decision == "approve" && in.ScriptCaptureStatus == "incomplete" {
+	if d != nil && d.Decision == "approve" && reason != "" {
 		forcedHuman = true
 		d = nil
 	}
 	s := e.Settings
-	in.Arguments = Redact(in.Arguments).(map[string]any)
+	in.Arguments = redacted.(map[string]any)
 	in.UserMessage = RedactText(in.UserMessage)
 	in.Context = RedactText(in.Context)
-	r := Review{Agent: AgentID(i.Agent), ID: id, ReviewInput: in, SessionID: i.SessionID, Cwd: i.Cwd, Digest: hex.EncodeToString(digest[:]), Mode: s.Mode, Version: s.Version, Prompt: s.Prompt, ModelName: s.Model.Model, Rules: rules, Scopes: applicable, Decision: "pending", Execution: "not_executed", CreatedAt: e.clock(), Deadline: e.clock().Add(time.Duration(s.ApprovalSeconds) * time.Second)}
+	r := Review{Agent: AgentID(i.Agent), ID: id, ReviewInput: in, SessionID: i.SessionID, Cwd: i.Cwd, Digest: hex.EncodeToString(digest[:]), Mode: s.Mode, Version: s.Version, Prompt: s.Prompt, ModelName: s.Model.Model, RedactedSpans: hidden, Rules: rules, Scopes: applicable, Decision: "pending", Execution: "not_executed", CreatedAt: e.clock(), Deadline: e.clock().Add(time.Duration(s.ApprovalSeconds) * time.Second)}
 	if d != nil {
 		r.ReviewPath = path
 		r.Decision = d.Decision
@@ -196,10 +202,12 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 		return r, e.commitReview(r, "review.submit")
 	}
 	r.ReviewPath = s.Mode
+	// Content the reviewer could not see is never decided by a model.
+	forcedHuman = forcedHuman || hidden > 0
 	r.NeedsHuman = s.Mode == "human" || forcedHuman
 	if forcedHuman {
 		r.ReviewPath = "human"
-		r.Comment = "The script could not be captured in full, so hidden side effects cannot be ruled out. Human confirmation is required."
+		r.Comment = reason
 	}
 	if s.Mode == "model" && !forcedHuman {
 		s.Prompt = modelPrompt(s.Prompt)
@@ -220,6 +228,22 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 		go e.modelReview(r, s)
 	}
 	return r, nil
+}
+
+// humanOnlyReason explains why a call must be confirmed by a human instead of
+// being approved by a rule or a model; it is empty when nothing prevents that.
+func humanOnlyReason(captureStatus string, hidden int) string {
+	reason := ""
+	if hidden > 0 {
+		reason = fmt.Sprintf("%d span(s) of this call were hidden by secret redaction, so the reviewer cannot see everything an approval would cover. Human confirmation is required.", hidden)
+	}
+	if captureStatus == "incomplete" {
+		if reason != "" {
+			reason += " "
+		}
+		reason += "The script could not be captured in full, so hidden side effects cannot be ruled out. Human confirmation is required."
+	}
+	return reason
 }
 
 // Infer legacy paths from the saved verdict and rule snapshot, never today's

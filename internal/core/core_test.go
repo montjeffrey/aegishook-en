@@ -244,7 +244,12 @@ func TestModelFailureAndRedaction(t *testing.T) {
 	e.Settings.Mode = "model"
 	e.Settings.Model = ModelConfig{BaseURL: up.URL, Model: "test", Tested: true}
 	e.mu.Unlock()
-	r, _ := e.Submit(input("failure", "tool", map[string]any{"password": "sensitive-value", "headers": map[string]any{"Authorization": "Bearer private-value"}, "command": "echo token=hidden-value"}))
+	// A call whose content was masked is never sent to the model; it waits for a human.
+	masked, _ := e.Submit(input("masked", "tool", map[string]any{"password": "sensitive-value", "headers": map[string]any{"Authorization": "Bearer private-value"}, "command": "echo token=hidden-value"}))
+	if masked.Decision != "pending" || masked.ReviewPath != "human" || masked.RedactedSpans != 3 {
+		t.Fatal(masked)
+	}
+	r, _ := e.Submit(input("failure", "tool", map[string]any{"command": "echo hello"}))
 	for n := 0; n < 100; n++ {
 		r, _ = e.Review(r.ID)
 		if r.Decision != "pending" {

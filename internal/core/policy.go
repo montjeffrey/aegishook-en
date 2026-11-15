@@ -14,45 +14,94 @@ import (
 
 var secretKey = regexp.MustCompile(`(?i)(password|passwd|secret|token|api.?key|authorization|cookie|credential)`)
 var textSecrets = regexp.MustCompile(`(?i)((?:password|passwd|token|api[_-]?key|secret|authorization)\s*[=:]\s*)(?:"[^"]*"|'[^']*'|[^\s,;&]+)`)
-var flagSecrets = regexp.MustCompile(`(?i)((?:--?(?:password|passwd|token|api[_-]?key|secret)|-p)\s+)(?:"[^"]*"|'[^']*'|[^\s,;&]+)`)
+var flagSecrets = regexp.MustCompile(`(?i)(--?(?:password|passwd|token|api[_-]?key|secret)\s+)(?:"[^"]*"|'[^']*'|[^\s,;&]+)`)
 var jsonSecrets = regexp.MustCompile(`(?i)("(?:password|passwd|secret|token|api.?key|authorization|cookie|credential)"\s*:\s*)"(?:[^"\\]|\\.)*"`)
 var urlSecrets = regexp.MustCompile(`(?i)(https?://)[^\s/@:]+:[^\s/@]+@`)
 var bearer = regexp.MustCompile(`(?i)\bBearer\s+[a-z0-9._~+/-]+`)
 
+const redactedMark = "[REDACTED]"
+
+// replaceCounting works like ReplaceAllString, but also counts the matches whose
+// replacement differs from the matched text, i.e. spans that were really hidden.
+func replaceCounting(re *regexp.Regexp, s, template string, hidden *int) string {
+	idx := re.FindAllStringSubmatchIndex(s, -1)
+	if len(idx) == 0 {
+		return s
+	}
+	var out []byte
+	last := 0
+	for _, m := range idx {
+		out = append(out, s[last:m[0]]...)
+		rep := re.ExpandString(nil, template, s, m)
+		if string(rep) != s[m[0]:m[1]] {
+			*hidden++
+		}
+		out = append(out, rep...)
+		last = m[1]
+	}
+	return string(append(out, s[last:]...))
+}
+
+// redactSecrets masks secret-shaped text and reports how many spans were hidden.
+func redactSecrets(s string) (string, int) {
+	n := 0
+	s = replaceCounting(bearer, s, "Bearer [REDACTED]", &n)
+	s = replaceCounting(jsonSecrets, s, `${1}"[REDACTED]"`, &n)
+	s = replaceCounting(flagSecrets, s, "${1}[REDACTED]", &n)
+	s = replaceCounting(urlSecrets, s, "${1}[REDACTED]@", &n)
+	s = replaceCounting(textSecrets, s, "${1}[REDACTED]", &n)
+	s = replaceCounting(bearer, s, "Bearer [REDACTED]", &n)
+	return s, n
+}
+
+// RedactText is for logs, errors, results and other display-only text; it also
+// truncates. Never use it on content an approval is bound to (see redactArguments).
 func RedactText(s string) string {
-	s = bearer.ReplaceAllString(s, "Bearer [REDACTED]")
-	s = jsonSecrets.ReplaceAllString(s, `${1}"[REDACTED]"`)
-	s = flagSecrets.ReplaceAllString(s, "${1}[REDACTED]")
-	s = urlSecrets.ReplaceAllString(s, "${1}[REDACTED]@")
-	s = textSecrets.ReplaceAllString(s, "${1}[REDACTED]")
-	s = bearer.ReplaceAllString(s, "Bearer [REDACTED]")
+	s, _ = redactSecrets(s)
 	if len(s) > 24000 {
 		s = s[:24000] + "…[truncated]"
 	}
 	return s
 }
 func Redact(v any) any {
+	out, _ := redactArguments(v)
+	return out
+}
+
+// redactArguments masks secrets in tool-call arguments without truncating them,
+// and returns how many spans were hidden. A reviewer must always be shown the
+// whole call, and must be told when part of it was masked.
+func redactArguments(v any) (any, int) {
 	switch x := v.(type) {
 	case map[string]any:
 		o := map[string]any{}
+		n := 0
 		for k, v := range x {
 			if secretKey.MatchString(k) {
-				o[k] = "[REDACTED]"
+				o[k] = redactedMark
+				if v != redactedMark {
+					n++
+				}
 			} else {
-				o[k] = Redact(v)
+				r, c := redactArguments(v)
+				o[k] = r
+				n += c
 			}
 		}
-		return o
+		return o, n
 	case []any:
 		o := make([]any, len(x))
+		n := 0
 		for i, v := range x {
-			o[i] = Redact(v)
+			var c int
+			o[i], c = redactArguments(v)
+			n += c
 		}
-		return o
+		return o, n
 	case string:
-		return RedactText(x)
+		return redactSecrets(x)
 	default:
-		return v
+		return v, 0
 	}
 }
 func BuiltinRules() []Rule {

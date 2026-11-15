@@ -59,6 +59,15 @@ const command = computed(() => {
           </button>
         </div>
       </div>
+      <div v-if="call.redactedSpans" role="alert" class="alert danger">
+        <Icon name="ShieldX" :size="16" />
+        <span
+          >{{ call.redactedSpans }} span{{ call.redactedSpans === 1 ? "" : "s" }} of this
+          call are hidden as [REDACTED]. Allowing it also allows the hidden text; it was
+          not shown to you or to a model. Reject it unless you trust the whole
+          command.</span
+        >
+      </div>
       <pre class="request-content">{{
         showCommand && command !== null
           ? command

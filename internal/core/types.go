@@ -113,6 +113,7 @@ type Review struct {
 	ModelInput       json.RawMessage `json:"modelInput,omitempty"`
 	ModelInputDigest string          `json:"modelInputDigest,omitempty"`
 	ModelName        string          `json:"modelName,omitempty"`
+	RedactedSpans    int             `json:"redactedSpans,omitempty"` // spans of the arguments hidden by redaction; the digest still covers them.
 	SessionID        string          `json:"sessionId"`
 	Cwd              string          `json:"cwd"`
 	Digest           string          `json:"digest"`
