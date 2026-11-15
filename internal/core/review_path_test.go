@@ -183,3 +183,10 @@ func TestLegacyReviewPathUsesSavedEvidence(t *testing.T) {
 		})
 	}
 }
+
+func TestLocalDiagnosticDescribesEveryAgentBoundary(t *testing.T) {
+	boundary, _ := engine(t).LocalDiagnostic()["toolBoundary"].(string)
+	if strings.HasPrefix(boundary, "Pi tool_call") || !strings.Contains(boundary, "PreToolUse") {
+		t.Fatalf("boundary text is Pi-only: %q", boundary)
+	}
+}
