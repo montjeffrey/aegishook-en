@@ -574,8 +574,19 @@ func within(root, p string) bool {
 	r, err := filepath.Rel(root, p)
 	return err == nil && r != ".." && !strings.HasPrefix(r, ".."+string(filepath.Separator))
 }
+
+// withinResolved is within for a local call: the project root as configured and the
+// cwd as the client sent it may be spelled differently (an 8.3 short name and its
+// long name, a symlinked root, another case). When the textual comparison fails,
+// both sides are compared again after resolving them on the filesystem, so a scope
+// is never skipped just because of spelling. Remote nodes use agentWithin, which
+// compares normalised strings and never touches this machine's filesystem.
+func withinResolved(root, p string) bool {
+	return within(root, p) || within(policyPath(root, ""), policyPath(p, ""))
+}
+
 func checkScope(in ReviewInput, cwd string, scopes []Scope) *Decision {
-	return checkScopePaths(in, cwd, scopes, policyPath, within)
+	return checkScopePaths(in, cwd, scopes, policyPath, withinResolved)
 }
 func checkScopePaths(in ReviewInput, cwd string, scopes []Scope, resolve func(string, string) string, contains func(string, string) bool) *Decision {
 	for _, s := range scopes {

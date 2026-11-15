@@ -159,7 +159,7 @@ func (e *Engine) Submit(in ReviewInput) (Review, error) {
 			applicable = append(applicable, s)
 		}
 	}
-	resolve, contains := policyPath, within
+	resolve, contains := policyPath, withinResolved
 	if i.NodeID != "" {
 		resolve = func(p, cwd string) string { return agentPath(p, cwd, i.Platform) }
 		contains = func(root, p string) bool { return agentWithin(root, p, i.Platform) }
