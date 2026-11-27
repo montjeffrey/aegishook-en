@@ -9,13 +9,15 @@
 
 A local Go + Vue 3 console that provides pre-execution tool call review, human approval, model decisions and auditing for Pi, Claude Code, Codex, OpenCode and Grok Build. The loopback address and port are configurable; use `-h` or `--help` for command help. It builds from source on macOS, Linux and Windows. The Go test suite runs on Windows in CI; real-client installation and trust flows on Windows still need to be verified on the target machine.
 
-![image-20260909171623533](assets/image-20260909171623533.png)
+![Overview: tool calls, blocked calls, pending reviews, review-model tokens and estimated cost for the last 7 days](assets/overview.png)
 
-![image-20260909171716177](assets/image-20260909171716177.png)
+![Agent integration: Pi detected, hook installed for the current user and events received](assets/agent-integration.png)
 
-![image-20260909172048294](assets/image-20260909172048294.png)
+![Approvals & blocks: model decisions approving reconnaissance and rejecting a password change, a login flood and a service restart](assets/approvals-and-blocks.png)
 
-![image-20260909173443083](assets/image-20260909173443083.png)
+![A review record expanded: the tool request, the decision returned to the agent, the user message, session context and execution output](assets/record-detail.png)
+
+The screenshots use demo data against `example.com`; the calls were reviewed, not executed.
 
 
 
